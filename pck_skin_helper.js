@@ -1,73 +1,144 @@
 (function () {
   "use strict";
 
+  const fs = require("fs");
+
   const registered = [];
   function track(item) {
     registered.push(item);
     return item;
   }
 
-  const LOCKED_BONES = new Set(["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"]);
+  const LOCKED_BONES = new Set(["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1", "WAIST", "ROOT"]);
 
+  // When false the bone guards are fully disabled, letting the user freely move
+  // pivots and reparent bones. Toggled via the "Lock Root Bones" action.
+  let boneLockEnabled = true;
+
+  // Set to true during PSM import so the finished_edit guard doesn't roll back
+  // the pivot changes that the import deliberately applies.
+  let suppressBoneGuard = false;
+
+  // cubeName    = display name shown in outliner
+  // animFlag    = ANIM bit (mask) that hides/shows this cube when toggled
+  //               (undefined = always visible, can never be hidden via ANIM)
+  // ANIM masks:
+  //   HEAD_DISABLED            = 0x400   (bit 10)
+  //   LEFT_ARM_DISABLED        = 0x1000  (bit 12)
+  //   RIGHT_ARM_DISABLED       = 0x800   (bit 11)
+  //   BODY_DISABLED            = 0x2000  (bit 13)
+  //   LEFT_LEG_DISABLED        = 0x8000  (bit 15)
+  //   RIGHT_LEG_DISABLED       = 0x4000  (bit 14)
+  //   HEAD_OVERLAY_DISABLED    = 0x10000 (bit 16)
+  //   LEFT_ARM_OVERLAY_DISABLED  = 0x100000 (bit 20)
+  //   RIGHT_ARM_OVERLAY_DISABLED = 0x200000 (bit 21)
+  //   LEFT_LEG_OVERLAY_DISABLED  = 0x400000 (bit 22)
+  //   RIGHT_LEG_OVERLAY_DISABLED = 0x800000 (bit 23)
+  //   BODY_OVERLAY_DISABLED    = 0x1000000 (bit 24)
   const TEMPLATE_BONES = [
     {
       name: "HEAD",
       pivot: [0, 24, 0],
       cubes: [
-        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0 },
-        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25 },
+        { cubeName: "HEAD", origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, animFlag: 0x400 },
+        { cubeName: "HEADWEAR", origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25, animFlag: 0x10000 },
       ],
     },
     {
       name: "BODY",
       pivot: [0, 24, 0],
       cubes: [
-        { origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 16], inflate: 0 },
-        { origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 32], inflate: 0.25 },
+        { cubeName: "BODY", origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 16], inflate: 0, animFlag: 0x2000 },
+        {
+          cubeName: "JACKET",
+          origin: [-4, 12, -2],
+          size: [8, 12, 4],
+          uv: [16, 32],
+          inflate: 0.25,
+          animFlag: 0x1000000,
+        },
       ],
     },
     {
       name: "ARM0",
       pivot: [6, 22, 0],
       cubes: [
-        { origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 16], inflate: 0 },
-        { origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 32], inflate: 0.25 },
+        { cubeName: "ARM0", origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 16], inflate: 0, animFlag: 0x800 },
+        { cubeName: "SLEEVE0", origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 32], inflate: 0.25, animFlag: 0x200000 },
       ],
     },
     {
       name: "ARM1",
       pivot: [-6, 22, 0],
       cubes: [
-        { origin: [-8, 12, -2], size: [4, 12, 4], uv: [32, 48], inflate: 0 },
-        { origin: [-8, 12, -2], size: [4, 12, 4], uv: [48, 48], inflate: 0.25 },
+        { cubeName: "ARM1", origin: [-8, 12, -2], size: [4, 12, 4], uv: [32, 48], inflate: 0, animFlag: 0x1000 },
+        {
+          cubeName: "SLEEVE1",
+          origin: [-8, 12, -2],
+          size: [4, 12, 4],
+          uv: [48, 48],
+          inflate: 0.25,
+          animFlag: 0x100000,
+        },
       ],
     },
     {
       name: "LEG0",
       pivot: [2, 12, 0],
       cubes: [
-        { origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 16], inflate: 0 },
-        { origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 32], inflate: 0.25 },
+        { cubeName: "LEG0", origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 16], inflate: 0, animFlag: 0x4000 },
+        { cubeName: "PANT0", origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 32], inflate: 0.25, animFlag: 0x800000 },
       ],
     },
     {
       name: "LEG1",
       pivot: [-2, 12, 0],
       cubes: [
-        { origin: [-4, 0, -2], size: [4, 12, 4], uv: [16, 48], inflate: 0 },
-        { origin: [-4, 0, -2], size: [4, 12, 4], uv: [0, 48], inflate: 0.25 },
+        { cubeName: "LEG1", origin: [-4, 0, -2], size: [4, 12, 4], uv: [16, 48], inflate: 0, animFlag: 0x8000 },
+        { cubeName: "PANT1", origin: [-4, 0, -2], size: [4, 12, 4], uv: [0, 48], inflate: 0.25, animFlag: 0x400000 },
       ],
     },
   ];
 
+  // Map from template cube name -> ANIM flag mask that controls visibility.
+  const TEMPLATE_CUBE_FLAG = {};
+  TEMPLATE_BONES.forEach((boneDef) => {
+    boneDef.cubes.forEach((c) => {
+      if (c.animFlag !== undefined) TEMPLATE_CUBE_FLAG[c.cubeName] = c.animFlag;
+    });
+  });
+
+  // Flat set of all template cube names (for guard checks).
+  const TEMPLATE_CUBE_NAMES = new Set(Object.keys(TEMPLATE_CUBE_FLAG));
+
+  // Persistent registry of template cube uuids — populated when cubes are created,
+  // cleared on project close/new.  Survives deletion so the guard can still identify
+  // which uuids were template cubes even after they have been removed from Cube.all.
+  const TEMPLATE_UUID_REGISTRY = new Set();
+
   function buildTemplateSkeleton() {
+    // ROOT is the top-level container — locked, not exported, pivot at origin.
+    const rootGroup = new Group({ name: "ROOT", origin: [0, 0, 0] }).init();
+    rootGroup.export = false;
+
+    // WAIST is the upper-body container — locked, not exported, pivot at Y=12 by default.
+    const WAIST_BONES = new Set(["HEAD", "BODY", "ARM0", "ARM1"]);
+    const LEG_BONES = new Set(["LEG0", "LEG1"]);
+    const waistGroup = new Group({ name: "WAIST", origin: [0, 12, 0] }).addTo(rootGroup).init();
+    waistGroup.export = false;
+
     TEMPLATE_BONES.forEach((boneDef) => {
+      let parent;
+      if (WAIST_BONES.has(boneDef.name)) parent = waistGroup;
+      else if (LEG_BONES.has(boneDef.name)) parent = rootGroup;
       const group = new Group({
         name: boneDef.name,
         origin: boneDef.pivot,
-      }).init();
+      });
+      if (parent) group.addTo(parent);
+      group.init();
 
-      boneDef.cubes.forEach((cubeDef, i) => {
+      boneDef.cubes.forEach((cubeDef) => {
         const from = cubeDef.origin.slice();
         const to = [
           cubeDef.origin[0] + cubeDef.size[0],
@@ -75,8 +146,8 @@
           cubeDef.origin[2] + cubeDef.size[2],
         ];
 
-        new Cube({
-          name: boneDef.name,
+        const cube = new Cube({
+          name: cubeDef.cubeName,
           from,
           to,
           inflate: cubeDef.inflate,
@@ -85,12 +156,16 @@
         })
           .addTo(group)
           .init();
+        cube.pck_template = true;
+        cube.pck_anim_flag = cubeDef.animFlag;
+        TEMPLATE_UUID_REGISTRY.add(cube.uuid);
       });
     });
   }
 
   function onNameChanged({ object, new_name, old_name }) {
     if (Format.id !== "pck_skin") return;
+    if (!boneLockEnabled) return;
     if (!(object instanceof Group)) return;
     if (!LOCKED_BONES.has(old_name)) return;
 
@@ -101,6 +176,7 @@
 
   function onFinishedEdit() {
     if (Format.id !== "pck_skin") return;
+    if (!boneLockEnabled || suppressBoneGuard) return;
 
     const last = Undo.history[Undo.history.length - 1];
     if (!last || !last.before || !last.before.groups) return;
@@ -128,6 +204,35 @@
       }
     });
 
+    // Check for any newly-applied rotations on groups or cubes.
+    // PSM does not support rotations — roll back if any appear.
+    const isRotated = (r) => r && (r[0] !== 0 || r[1] !== 0 || r[2] !== 0);
+    const ROTATION_EXEMPT = new Set(["cape", "elytraRight", "elytraLeft"]);
+
+    const beforeElements = (last.before && last.before.elements) || {};
+
+    let rotationViolated = false;
+
+    Group.all.forEach((group) => {
+      if (isRotated(group.rotation)) rotationViolated = true;
+    });
+
+    if (!rotationViolated) {
+      Cube.all.forEach((cube) => {
+        if (ROTATION_EXEMPT.has(cube.name)) return;
+        if (cube.uuid.startsWith("eeeeeeee") || cube.uuid.startsWith("cccccccc")) return;
+        if (isRotated(cube.rotation)) rotationViolated = true;
+      });
+    }
+
+    if (rotationViolated) {
+      Undo.loadSave(last.before, last.post);
+      Undo.history.pop();
+      Undo.index = Undo.history.length;
+      Blockbench.showQuickMessage("Rotations are not supported in PSM — the rotation has been reverted.", 2500);
+      return;
+    }
+
     if (violated) {
       Undo.loadSave(last.before, last.post);
       Undo.history.pop();
@@ -141,6 +246,64 @@
     }
   }
 
+  // Returns the snapshot bounds key for a cube for comparison.
+  function cubeKey(c) {
+    return [c.from[0], c.from[1], c.from[2], c.to[0], c.to[1], c.to[2], c.inflate || 0].join(",");
+  }
+
+  function onFinishedEditCubeGuard() {
+    if (Format.id !== "pck_skin") return;
+    if (!boneLockEnabled || suppressBoneGuard) return;
+    if (TEMPLATE_UUID_REGISTRY.size === 0) return;
+    const last = Undo.history[Undo.history.length - 1];
+    if (!last || !last.before) return;
+
+    // Use the persistent registry — NOT Cube.all — so we can detect deletions
+    // even after the cube has already been removed from the scene.
+    // Guard is uuid-only: user cubes named "HEAD" etc. are never affected.
+    const beforeElements = last.before.elements || {};
+    const allCubeUuids = new Set(Cube.all.map((c) => c.uuid));
+    const templateByUuid = {};
+    Cube.all.forEach((c) => {
+      if (c.pck_template) templateByUuid[c.uuid] = c;
+    });
+
+    let violated = false;
+
+    TEMPLATE_UUID_REGISTRY.forEach((uuid) => {
+      if (!beforeElements[uuid]) return; // wasn't part of this edit
+
+      // 1. Deletion check
+      if (!allCubeUuids.has(uuid)) {
+        violated = true;
+        return;
+      }
+
+      // 2. Resize check
+      const current = templateByUuid[uuid];
+      if (!current) return;
+      const snap = beforeElements[uuid];
+      const snapKey = [
+        snap.from[0],
+        snap.from[1],
+        snap.from[2],
+        snap.to[0],
+        snap.to[1],
+        snap.to[2],
+        snap.inflate || 0,
+      ].join(",");
+      if (cubeKey(current) !== snapKey) violated = true;
+    });
+
+    if (violated) {
+      Undo.loadSave(last.before, last.post);
+      Undo.history.pop();
+      Undo.index = Undo.history.length;
+      Blockbench.showQuickMessage("Template cubes cannot be deleted or resized — use ANIM flags to hide them.", 2800);
+      Canvas.updateAll();
+    }
+  }
+
   function onCubeAdded({ object }) {
     if (Format.id !== "pck_skin") return;
     if (!object.box_uv) {
@@ -148,15 +311,32 @@
     }
   }
 
+  function onCloseProject() {
+    TEMPLATE_UUID_REGISTRY.clear();
+    // Reset lock state so each new project starts locked.
+    if (!boneLockEnabled) {
+      boneLockEnabled = true;
+      const action = BarItems["pck_toggle_bone_lock"];
+      if (action) {
+        action.name = "Unlock Root Bones";
+        action.icon = "lock_open";
+      }
+    }
+  }
+
   Blockbench.on("change_element_name", onNameChanged);
   Blockbench.on("finished_edit", onFinishedEdit);
+  Blockbench.on("finished_edit", onFinishedEditCubeGuard);
   Blockbench.on("add_cube", onCubeAdded);
+  Blockbench.on("close_project", onCloseProject);
 
   track({
     delete() {
       Blockbench.removeListener("change_element_name", onNameChanged);
       Blockbench.removeListener("finished_edit", onFinishedEdit);
+      Blockbench.removeListener("finished_edit", onFinishedEditCubeGuard);
       Blockbench.removeListener("add_cube", onCubeAdded);
+      Blockbench.removeListener("close_project", onCloseProject);
     },
   });
 
@@ -187,40 +367,90 @@
 
     const presentBoneNames = new Set(Group.all.map((g) => g.name));
 
-    LOCKED_BONES.forEach((requiredName) => {
+    // Valid skeleton structure:
+    //   Root level:    ROOT only
+    //   Under ROOT:    WAIST, LEG0, LEG1
+    //   Under WAIST:   HEAD, BODY, ARM0, ARM1
+    //   Under bones:   cubes only, OR known offset folders
+    //   Under folders: cubes only
+    const VALID_UNDER_ROOT = new Set(["WAIST", "LEG0", "LEG1"]);
+    const VALID_UNDER_WAIST = new Set(["HEAD", "BODY", "ARM0", "ARM1"]);
+    const VALID_OFFSET_FOLDERS = new Set([
+      "TOOL0",
+      "TOOL1",
+      "HELMET",
+      "SHOULDER0",
+      "SHOULDER1",
+      "CHEST",
+      "PANTS0",
+      "PANTS1",
+      "BOOT0",
+      "BOOT1",
+    ]);
+
+    // All required bones must be present
+    ["ROOT", "WAIST", "HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"].forEach((requiredName) => {
       if (!presentBoneNames.has(requiredName)) {
         issues.push({
-          name: "Missing or renamed root bone",
+          name: "Missing or renamed bone",
           description:
             `The required bone **"${requiredName}"** is missing. ` +
-            `Root bones (HEAD, BODY, ARM0, ARM1, LEG0, LEG1) must keep their original names exactly — ` +
-            `they cannot be renamed, deleted, or replaced.`,
+            `Required bones must keep their original names and cannot be deleted or replaced.`,
         });
       }
     });
 
+    // Root level: only ROOT allowed
     Group.all.forEach((group) => {
       if (group.parent instanceof Group) return;
-      if (!LOCKED_BONES.has(group.name)) {
+      if (group.name !== "ROOT") {
         issues.push({
-          name: "Unrecognised root bone",
+          name: "Unexpected root bone",
           description:
-            `Found an unexpected root bone named **"${group.name}"**. ` +
-            `Only the six locked bones (HEAD, BODY, ARM0, ARM1, LEG0, LEG1) may exist at the top level. ` +
-            `If you renamed one of those bones, please rename it back to its original name.`,
+            `Found **"${group.name}"** at the root level. ` +
+            `Only **ROOT** may sit at the top level — all other bones must be nested inside it.`,
         });
       }
     });
 
+    // Under ROOT: only WAIST, LEG0, LEG1 allowed
+    Group.all
+      .filter((g) => g.parent instanceof Group && g.parent.name === "ROOT")
+      .forEach((group) => {
+        if (!VALID_UNDER_ROOT.has(group.name)) {
+          issues.push({
+            name: "Unexpected bone inside ROOT",
+            description:
+              `Found **"${group.name}"** inside ROOT. ` + `Only WAIST, LEG0, and LEG1 may be direct children of ROOT.`,
+          });
+        }
+      });
+
+    // Under WAIST: only HEAD, BODY, ARM0, ARM1 allowed
+    Group.all
+      .filter((g) => g.parent instanceof Group && g.parent.name === "WAIST")
+      .forEach((group) => {
+        if (!VALID_UNDER_WAIST.has(group.name)) {
+          issues.push({
+            name: "Unexpected bone inside WAIST",
+            description:
+              `Found **"${group.name}"** inside WAIST. ` +
+              `Only HEAD, BODY, ARM0, and ARM1 may be direct children of WAIST.`,
+          });
+        }
+      });
+
+    // Under the 6 main bones: only cubes OR known offset folders allowed
     Group.all.forEach((group) => {
       if (!(group.parent instanceof Group)) return;
-      const parentName = group.parent instanceof Group ? group.parent.name : "?";
+      const parentName = group.parent.name;
+      if (parentName === "ROOT" || parentName === "WAIST") return; // handled above
+      if (VALID_OFFSET_FOLDERS.has(group.name)) return; // valid offset folder
       issues.push({
-        name: "Nested sub-folder detected",
+        name: "Invalid sub-folder",
         description:
-          `Found a sub-folder named **"${group.name}"** inside bone **"${parentName}"**. ` +
-          `Sub-folders are not allowed — only cubes may exist inside the root bones (HEAD, BODY, ARM0, ARM1, LEG0, LEG1). ` +
-          `Please remove or ungroup it before exporting.`,
+          `Found a sub-folder named **"${group.name}"** inside **"${parentName}"**. ` +
+          `Only cubes and recognised offset folders (HELMET, CHEST, SHOULDER0/1, BOOT0/1, etc.) are allowed inside bones.`,
       });
     });
 
@@ -496,11 +726,19 @@
     if (!newProject(this)) return false;
 
     Project.pck_skin_pack_uuid = guid();
+    Project.psm_anim_flags = 0x40000; // RESOLUTION_64x64 checked by default
 
     Project.texture_width = 64;
     Project.texture_height = 64;
 
     buildTemplateSkeleton();
+
+    // new_project fires before psm_anim_flags is set, so the panel synced to 0.
+    // Push the correct default value now that the project is fully initialised.
+    const animPanel = Interface.Panels.pck_anim;
+    if (animPanel && animPanel.inside_vue) {
+      animPanel.inside_vue.anim_flags = Project.psm_anim_flags;
+    }
 
     const defaultSkinB64 =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAGlQTFRFAAAAKBsLLB8OjFs/OCUSfU0xsHROIBUHRCwXwoZrzJF216OL////QiYdXjIqfz83Dw0UFRMcNzc3KigoPz8/HRooIR0w0tLhycfb8fHwvyUpKiY4q6XBKDQamyIavbrTUVFRdXV17TAsPTNTLwAAACN0Uk5TAP////////////////////////////////////////////+k8FOOAAADn0lEQVR4nO1X227cNhCdEUll0TgXJ3EL5CH//1V9KVCgaW527ToWKTLnDKm1rF1ntTZSIEC1K1G8Hc6NnCOVdqlowaN0rT7Kuku3L9qN2mUAECI/AMDloviFUqvD8RIUvBf1DwbAn0p0o6ngjgboBDYsDiW1d3I8AAzIijqrjg/wghTYERIQYVzvBaXz+wHPzicBgvQDWtBjraUcBED89BIlRCyeO/yCcKJjCZEOAlB3YQQFh4XHJKy7jK5AsVZIQIkxdmOxLOWr9JE6qWmhkleogPCD8TsdxZU8FolqMQmgIPEgAPyvoeNGAky0MsdCw0rEPRxU4cnQF9Pe3TyTi81o7zr0AybLGgDnmt9dxCTg1DhAGHiU6WA8WCC95DmgpfvQGs/OgTLKi+SBgPtzaz/F+w0EHJYA7HBZy6fW+OtHK17TFHTl3xMw3q8QW9f7AHQmwdEAVMHPJDjrLuCO53mVCqdwIwexYEmrIyi/jK9zjrZCQZjXvqlfZ6B6SiG9lkQcjE6sB4RHLpEK+Am6qcN+P1NLz6JNRNSwHbGMdZJ3iMruGpM9QzoG9GC3IeQi+1nMAdhQARi8WCHK09h5TSYNGlKwucLQrgAS398BGGwgh0jPYE7el3Hz1QKbYv/C4DaESQK5C8DjALbiioGrRunDVZUGM6O9cIhWFVncVYHtUMEMZYZP3ppRS4D3VtRjqhqxyBbg1IxXJlu32DCDSYUrsGFJi02ln+cABLbRDcO8Ffo4TWJ3D8fy0NMncoP8l/+a+t7kDD8msaPhRC41Na/2Vd/J/5fYrxi0fVxvAfDIz/Wc+egE9zl1hM4lNH2luvLKhqe6u53f7gd9RbH05B+KRRCTxdvUKWxt5o2YlZItj7Z/55vpMdf/AD8W4O3m98cBvEt/Pg5g3fUTATAnYBO0/ZHk9jzw27xzJ4ksr9/uOw+mibIF+kEq/LcAy2S7L6l+F2CZ7vel9YMAc8JxNMCS8hylwj6+oI0b7IuTvQCkC9J4wMQHZEF37gU4SzWpASFMfEFDzc7M8e/XATCNAwBZe+IDxjBmvOB+gGiJqCcA+UJofEBqbQ2AcHwgQM1PlQ+oURyRVSo0whBuSVWpdA15+qARqxu1MQ5Z8oI6idm8nQ8754HxKi6Z7COubNr+l8V5sK0vz4M3/O4iYSid8QWm9VtmIDvRuKOC8YUX5WLiC3+w0dUcXzTtfE/uABhfeHZZJr5wwaV9JQe40lKCbwlsVIdTtMy7AAAAAElFTkSuQmCC";
@@ -538,6 +776,14 @@
       exposed: false,
       condition: { formats: ["pck_skin"] },
       default: () => guid(),
+    }),
+  );
+
+  track(
+    new Property(ModelProject, "number", "psm_anim_flags", {
+      exposed: false,
+      condition: { formats: ["pck_skin"] },
+      default: 0,
     }),
   );
 
@@ -773,15 +1019,15 @@ void main(void) {
   const PCK_ANIMATIONS = {
     format_version: "1.8.0",
     animations: {
-      "animation.player.idle": {},
-      "animation.player.bob": {
+      Idle: {},
+      Bob: {
         loop: true,
         bones: {
           ARM0: { rotation: [0.0, 0.0, "(math.cos(query.life_time * 103.2) * 2.865) + 2.865"] },
           ARM1: { rotation: [0.0, 0.0, "-((math.cos(query.life_time * 103.2) * 2.865) + 2.865)"] },
         },
       },
-      "animation.player.walk": {
+      Walk: {
         loop: true,
         bones: {
           ARM0: { rotation: ["-math.cos(query.anim_time * 360) * 30", 0, 0] },
@@ -790,7 +1036,7 @@ void main(void) {
           LEG1: { rotation: ["math.cos(query.anim_time * 360) * -1.4 * 30", 0, 0] },
         },
       },
-      "animation.player.run": {
+      Run: {
         loop: true,
         bones: {
           ARM0: { rotation: ["-math.cos(query.anim_time * 720) * 50", 0, 0] },
@@ -799,7 +1045,52 @@ void main(void) {
           LEG1: { rotation: ["math.cos(query.anim_time * 720) * -1.4 * 50", 0, 0] },
         },
       },
-      "animation.player.sitting": {
+      Swim: {
+        loop: true,
+        animation_length: 2.6,
+        override_previous_animation: true,
+        bones: {
+          ARM1: {
+            rotation: {
+              "0.0": [0, 180, 180],
+              0.65: [0, 180, 287.2],
+              1.06: [90, 180, 180],
+              1.28: [0, 180, 180],
+              1.93: [0, 180, 287.2],
+              2.34: [90, 180, 180],
+              2.6: [0, 180, 180],
+            },
+          },
+          ARM0: {
+            rotation: {
+              "0.0": [0, 180, -180],
+              0.65: [0, 180, -287.2],
+              1.06: [90, 180, -180],
+              1.28: [0, 180, -180],
+              1.93: [0, 180, -287.2],
+              2.34: [90, 180, -180],
+              2.6: [0, 180, -180],
+            },
+          },
+          root: { rotation: [60, 0, 0], position: [0, 4, 12] },
+          LEG1: { rotation: ["math.lerp(0.0, math.cos(query.life_time * 415.4 + 180.0) * 17.2, 1.0)", 0, 0] },
+          LEG0: { rotation: ["math.lerp(0.0, math.cos(query.life_time * 415.4) * 17.2, 1.0)", 0, 0] },
+          HEAD: { rotation: [-37.5, 0, 0] },
+        },
+      },
+      Sneak: {
+        loop: true,
+        bones: {
+          //  BODY: { position: [0, -2, 0] },
+          HEAD: { rotation: [-28, 0, 0], position: [0, -1, 0] },
+          ARM1: { rotation: ["-5.7 + math.cos(query.anim_time * 180) * 12", 0, 0] },
+          LEG1: { rotation: ["math.cos(query.anim_time * 180) * -16", 0, 0] },
+          ARM0: { rotation: ["-5.7 + math.cos(query.anim_time * 180) * -12", 0, 0] },
+          LEG0: { rotation: ["math.cos(query.anim_time * 180) * 16", 0, 0] },
+          WAIST: { rotation: [28, 0, 0] },
+        },
+      },
+      "Bad Santa": {
         loop: true,
         bones: {
           BODY: { position: [0, -10, 0] },
@@ -808,6 +1099,39 @@ void main(void) {
           ARM1: { position: [0, -10, 0] },
           LEG0: { rotation: ["-88.5 - this", "18 - this", "-this"], position: [0, -10, 0] },
           LEG1: { rotation: ["-88.5 - this", "-18 - this", "0"], position: [0, -10, 0] },
+        },
+      },
+      "Zombie Arms": {
+        loop: true,
+        bones: {
+          ARM0: { rotation: [-90, 0, 0] },
+          ARM1: { rotation: [-90, 0, 0] },
+        },
+      },
+      "Statue of Liberty": {
+        loop: true,
+        bones: {
+          ARM0: { rotation: [180, 0, -17.2] },
+        },
+      },
+      "Backwards Crouch": {
+        loop: true,
+        bones: {
+          WAIST: { rotation: [-28, 0, 0] },
+          //  BODY: { position: [0, -2, 0] },
+          HEAD: { rotation: [-28, 0, 0], position: [0, -1, 0] },
+          // ARM0: { rotation: ["5.7 + math.cos(query.anim_time * 180) * -12", 0, 0] },
+          // ARM1: { rotation: ["5.7 + math.cos(query.anim_time * 180) * 12", 0, 0] },
+          // LEG0: { rotation: ["math.cos(query.anim_time * 180) * 16", 0, 0] },
+          // LEG1: { rotation: ["math.cos(query.anim_time * 180) * -16", 0, 0] },
+        },
+      },
+      Dinnerbone: {
+        loop: true,
+        bones: {
+          WAIST: { position: [0, 8, 0], rotation: [0, 0, 180] },
+          LEG0: { position: [0, 8, 0], rotation: [0, 0, 180] },
+          LEG1: { position: [0, 8, 0], rotation: [0, 0, 180] },
         },
       },
     },
@@ -824,26 +1148,111 @@ void main(void) {
   const BONE_DEFAULT_PIVOTS = {
     HEAD: [0, 24, 0],
     BODY: [0, 24, 0],
+    WAIST: [0, 12, 0],
     ARM0: [6, 22, 0],
     ARM1: [-6, 22, 0],
     LEG0: [2, 12, 0],
     LEG1: [-2, 12, 0],
   };
 
+  // Show/hide template cubes based on the current psm_anim_flags value.
+  // A template cube is hidden (visibility = false) when its ANIM flag bit is SET.
+  function syncTemplateCubeVisibility() {
+    if (Format.id !== "pck_skin") return;
+    const flags = Project.psm_anim_flags || 0;
+    Cube.all.forEach((c) => {
+      if (!c.pck_template || c.pck_anim_flag === undefined) return;
+      const shouldBeHidden = (flags & c.pck_anim_flag) !== 0;
+      if (c.visibility === shouldBeHidden) {
+        c.visibility = !shouldBeHidden;
+        Canvas.updateAll();
+      }
+    });
+  }
+
+  // Re-add any template cubes that were hidden and whose flag is now cleared.
+  // Also called after PSM import to restore cubes hidden by default flags.
+  function restoreTemplateCubes() {
+    if (Format.id !== "pck_skin") return;
+    const flags = Project.psm_anim_flags || 0;
+
+    TEMPLATE_BONES.forEach((boneDef) => {
+      const bone = Group.all.find((g) => g.name === boneDef.name);
+      if (!bone) return;
+      boneDef.cubes.forEach((cubeDef) => {
+        const flagSet = cubeDef.animFlag !== undefined && (flags & cubeDef.animFlag) !== 0;
+        const exists = Cube.all.find((c) => c.pck_template && c.name === cubeDef.cubeName && c.parent === bone);
+        if (!exists) {
+          const from = cubeDef.origin.slice();
+          const to = [
+            cubeDef.origin[0] + cubeDef.size[0],
+            cubeDef.origin[1] + cubeDef.size[1],
+            cubeDef.origin[2] + cubeDef.size[2],
+          ];
+          const cube = new Cube({
+            name: cubeDef.cubeName,
+            from,
+            to,
+            inflate: cubeDef.inflate,
+            box_uv: true,
+            uv_offset: cubeDef.uv,
+            visibility: !flagSet,
+          })
+            .addTo(bone)
+            .init();
+          cube.pck_template = true;
+          cube.pck_anim_flag = cubeDef.animFlag;
+          TEMPLATE_UUID_REGISTRY.add(cube.uuid);
+        } else {
+          exists.visibility = !flagSet;
+        }
+      });
+    });
+    Canvas.updateAll();
+  }
+
   function rebuildArmorCubes() {
     clearArmorCubes();
     if (!Modes.animate) return;
     if (!Project.pck_armor_cubes) Project.pck_armor_cubes = [];
 
-    function addCube(def, boneName, uuidFn = armorUuid) {
-      const bone = Group.all.find((g) => g.name === boneName);
+    // Prefer the named offset folder (e.g. HELMET, CHEST) when it exists in the outliner,
+    // falling back to the raw bone. Offset folders already have the correct pivot baked in,
+    // so no delta-shift is needed — attach the cube at its canonical position directly.
+    // For raw bones we still apply the pivot-delta to follow any custom offset.
+    function findOffsetFolder(folderName) {
+      return Group.all.find((g) => g.name === folderName) || null;
+    }
+
+    function addCube(def, boneName, uuidFn = armorUuid, overrideFolder = null) {
+      const target = overrideFolder ? findOffsetFolder(overrideFolder) : null;
+      const bone = target || Group.all.find((g) => g.name === boneName);
       if (!bone) return;
 
-      const defaultPivot = BONE_DEFAULT_PIVOTS[boneName] || [0, 0, 0];
-      const livePivot = bone.origin;
-      const dx = livePivot[0] - defaultPivot[0];
-      const dy = livePivot[1] - defaultPivot[1];
-      const dz = livePivot[2] - defaultPivot[2];
+      // Compute world-space shift so the armor cube follows any PSM offset.
+      //
+      // Case A — offset folder found (e.g. HELMET):
+      //   The folder's pivot encodes the PSM offset: pivot.Y = parentPivot.Y - offsetValue.
+      //   The armor cube coords are defined relative to the default parent pivot, so we
+      //   shift by (folder.origin - defaultParentPivot) to move them to the correct position.
+      //
+      // Case B — falling back to the raw bone:
+      //   Shift by (bone.origin - defaultPivot) to follow any custom bone pivot.
+      let dx = 0,
+        dy = 0,
+        dz = 0;
+      if (target) {
+        const defaultParentPivot = BONE_DEFAULT_PIVOTS[boneName] || [0, 0, 0];
+        dx = target.origin[0] - defaultParentPivot[0];
+        dy = target.origin[1] - defaultParentPivot[1];
+        dz = target.origin[2] - defaultParentPivot[2];
+      } else {
+        const defaultPivot = BONE_DEFAULT_PIVOTS[boneName] || [0, 0, 0];
+        const livePivot = bone.origin;
+        dx = livePivot[0] - defaultPivot[0];
+        dy = livePivot[1] - defaultPivot[1];
+        dz = livePivot[2] - defaultPivot[2];
+      }
 
       const shifted = Object.assign({}, def);
       if (shifted.from) shifted.from = [shifted.from[0] + dx, shifted.from[1] + dy, shifted.from[2] + dz];
@@ -858,16 +1267,30 @@ void main(void) {
       addCube(
         { name: "armorHelmet", from: [-4, 24, -4], to: [4, 32, 4], inflate: 1, uv_offset: [0, 0], color: 1 },
         "HEAD",
+        armorUuid,
+        "HELMET",
       );
     }
     if (armorPieces.chestplate) {
       addCube(
         { name: "armorBody", from: [-4, 12, -2], to: [4, 24, 2], inflate: 1.01, uv_offset: [16, 16], color: 1 },
         "BODY",
+        armorUuid,
+        "CHEST",
       );
       addCube(
-        { name: "armorRightArm", from: [-8, 12, -2], to: [-4, 24, 2], inflate: 1, uv_offset: [40, 16], color: 1 },
+        {
+          name: "armorRightArm",
+          from: [-8, 12, -2],
+          to: [-4, 24, 2],
+          inflate: 1,
+          uv_offset: [40, 16],
+          color: 1,
+          mirror_uv: true,
+        },
         "ARM1",
+        armorUuid,
+        "SHOULDER1",
       );
       addCube(
         {
@@ -877,15 +1300,16 @@ void main(void) {
           inflate: 1,
           uv_offset: [40, 16],
           color: 1,
-          mirror_uv: true,
         },
         "ARM0",
+        armorUuid,
+        "SHOULDER0",
       );
     }
     if (armorPieces.leggings) {
       addCube(
         { name: "armorLegsBody", from: [-4, 12, -2], to: [4, 24, 2], inflate: 0.51, uv_offset: [16, 48], color: 1 },
-        "BODY",
+        "WAIST",
       );
       addCube(
         { name: "armorRightLeg", from: [-4, 0, -2], to: [0, 12, 2], inflate: 0.5, uv_offset: [0, 48], color: 1 },
@@ -908,6 +1332,8 @@ void main(void) {
       addCube(
         { name: "rightBoot", from: [-4, 0, -2], to: [0, 6, 2], inflate: 1, uv_offset: [0, 22], color: 1 },
         "LEG1",
+        armorUuid,
+        "BOOT1",
       );
       addCube(
         {
@@ -920,6 +1346,8 @@ void main(void) {
           mirror_uv: true,
         },
         "LEG0",
+        armorUuid,
+        "BOOT0",
       );
     }
 
@@ -1003,6 +1431,31 @@ void main(void) {
   pckStyleEl.type = "text/css";
   pckStyleEl.appendChild(
     document.createTextNode(`
+.pck_anim_list {
+    padding: 4px 6px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.pck_anim_list div {
+    display: flex;
+    align-items: center;
+    padding: 1px 0;
+}
+.pck_anim_group_label {
+    font-size: 0.78em;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--color-subtle_text);
+    letter-spacing: 0.06em;
+    padding: 4px 0 1px 2px !important;
+}
+.pck_anim_separator {
+    height: 5px !important;
+}
+.pck_anim_list input {
+    margin: 0 4px 0 2px;
+    flex-shrink: 0;
+}
 .list.pck_armor_list {
     padding: 6px;
 }
@@ -1022,6 +1475,46 @@ void main(void) {
       pckStyleEl.remove();
     },
   });
+
+  // ── ANIM Flags Panel ─────────────────────────────────────────────────────
+
+  track(
+    new Panel({
+      id: "pck_anim",
+      name: "ANIM Flags",
+      icon: "animation",
+      condition: { formats: ["pck_skin"] },
+      component: {
+        name: "panel-pck_anim",
+        data() {
+          return { anim_flags: Project.psm_anim_flags || 0 };
+        },
+        methods: {
+          toggleFlag(mask) {
+            this.anim_flags ^= mask;
+            Project.psm_anim_flags = this.anim_flags;
+            syncTemplateCubeVisibility();
+          },
+          syncFromProject() {
+            this.anim_flags = Project.psm_anim_flags || 0;
+          },
+        },
+        mounted() {
+          this._syncListener = () => this.syncFromProject();
+          Blockbench.on("load_project", this._syncListener);
+          Blockbench.on("select_project", this._syncListener);
+          Blockbench.on("new_project", this._syncListener);
+        },
+        beforeDestroy() {
+          Blockbench.removeListener("load_project", this._syncListener);
+          Blockbench.removeListener("select_project", this._syncListener);
+          Blockbench.removeListener("new_project", this._syncListener);
+        },
+        template:
+          '<div><div class="list pck_anim_list"><div class="pck_anim_group_label">Arms</div><div><input type="checkbox" id="pck_anim_STATIC_ARMS" :checked="(anim_flags & 1) !== 0" @change="toggleFlag(1)"><label for="pck_anim_STATIC_ARMS">Static Arms</label></div><div><input type="checkbox" id="pck_anim_ZOMBIE_ARMS" :checked="(anim_flags & 2) !== 0" @change="toggleFlag(2)"><label for="pck_anim_ZOMBIE_ARMS">Zombie Arms</label></div><div><input type="checkbox" id="pck_anim_SYNCED_ARMS" :checked="(anim_flags & 64) !== 0" @change="toggleFlag(64)"><label for="pck_anim_SYNCED_ARMS">Synced Arms</label></div><div><input type="checkbox" id="pck_anim_STATUE_OF_LIBERTY" :checked="(anim_flags & 128) !== 0" @change="toggleFlag(128)"><label for="pck_anim_STATUE_OF_LIBERTY">Statue of Liberty</label></div><div><input type="checkbox" id="pck_anim_RIGHT_ARM_DISABLED" :checked="(anim_flags & 2048) !== 0" @change="toggleFlag(2048)"><label for="pck_anim_RIGHT_ARM_DISABLED">Right Arm Disabled</label></div><div><input type="checkbox" id="pck_anim_LEFT_ARM_DISABLED" :checked="(anim_flags & 4096) !== 0" @change="toggleFlag(4096)"><label for="pck_anim_LEFT_ARM_DISABLED">Left Arm Disabled</label></div><div><input type="checkbox" id="pck_anim_RIGHT_ARM_OVERLAY_DISABLED" :checked="(anim_flags & 2097152) !== 0" @change="toggleFlag(2097152)"><label for="pck_anim_RIGHT_ARM_OVERLAY_DISABLED">Right Arm Overlay Off</label></div><div><input type="checkbox" id="pck_anim_LEFT_ARM_OVERLAY_DISABLED" :checked="(anim_flags & 1048576) !== 0" @change="toggleFlag(1048576)"><label for="pck_anim_LEFT_ARM_OVERLAY_DISABLED">Left Arm Overlay Off</label></div><div><input type="checkbox" id="pck_anim_FORCE_RIGHT_ARM_ARMOR" :checked="(anim_flags & 67108864) !== 0" @change="toggleFlag(67108864)"><label for="pck_anim_FORCE_RIGHT_ARM_ARMOR">Force Right Arm Armor</label></div><div><input type="checkbox" id="pck_anim_FORCE_LEFT_ARM_ARMOR" :checked="(anim_flags & 134217728) !== 0" @change="toggleFlag(134217728)"><label for="pck_anim_FORCE_LEFT_ARM_ARMOR">Force Left Arm Armor</label></div><div class="pck_anim_separator"></div><div class="pck_anim_group_label">Legs</div><div><input type="checkbox" id="pck_anim_STATIC_LEGS" :checked="(anim_flags & 4) !== 0" @change="toggleFlag(4)"><label for="pck_anim_STATIC_LEGS">Static Legs</label></div><div><input type="checkbox" id="pck_anim_BAD_SANTA" :checked="(anim_flags & 8) !== 0" @change="toggleFlag(8)"><label for="pck_anim_BAD_SANTA">Bad Santa</label></div><div><input type="checkbox" id="pck_anim_SYNCED_LEGS" :checked="(anim_flags & 32) !== 0" @change="toggleFlag(32)"><label for="pck_anim_SYNCED_LEGS">Synced Legs</label></div><div><input type="checkbox" id="pck_anim_RIGHT_LEG_DISABLED" :checked="(anim_flags & 16384) !== 0" @change="toggleFlag(16384)"><label for="pck_anim_RIGHT_LEG_DISABLED">Right Leg Disabled</label></div><div><input type="checkbox" id="pck_anim_LEFT_LEG_DISABLED" :checked="(anim_flags & 32768) !== 0" @change="toggleFlag(32768)"><label for="pck_anim_LEFT_LEG_DISABLED">Left Leg Disabled</label></div><div><input type="checkbox" id="pck_anim_RIGHT_LEG_OVERLAY_DISABLED" :checked="(anim_flags & 8388608) !== 0" @change="toggleFlag(8388608)"><label for="pck_anim_RIGHT_LEG_OVERLAY_DISABLED">Right Leg Overlay Off</label></div><div><input type="checkbox" id="pck_anim_LEFT_LEG_OVERLAY_DISABLED" :checked="(anim_flags & 4194304) !== 0" @change="toggleFlag(4194304)"><label for="pck_anim_LEFT_LEG_OVERLAY_DISABLED">Left Leg Overlay Off</label></div><div><input type="checkbox" id="pck_anim_FORCE_RIGHT_LEG_ARMOR" :checked="(anim_flags & 536870912) !== 0" @change="toggleFlag(536870912)"><label for="pck_anim_FORCE_RIGHT_LEG_ARMOR">Force Right Leg Armor</label></div><div><input type="checkbox" id="pck_anim_FORCE_LEFT_LEG_ARMOR" :checked="(anim_flags & 1073741824) !== 0" @change="toggleFlag(1073741824)"><label for="pck_anim_FORCE_LEFT_LEG_ARMOR">Force Left Leg Armor</label></div><div class="pck_anim_separator"></div><div class="pck_anim_group_label">Head</div><div><input type="checkbox" id="pck_anim_HEAD_BOBBING_DISABLED" :checked="(anim_flags & 512) !== 0" @change="toggleFlag(512)"><label for="pck_anim_HEAD_BOBBING_DISABLED">Head Bobbing Off</label></div><div><input type="checkbox" id="pck_anim_HEAD_DISABLED" :checked="(anim_flags & 1024) !== 0" @change="toggleFlag(1024)"><label for="pck_anim_HEAD_DISABLED">Head Disabled</label></div><div><input type="checkbox" id="pck_anim_HEAD_OVERLAY_DISABLED" :checked="(anim_flags & 65536) !== 0" @change="toggleFlag(65536)"><label for="pck_anim_HEAD_OVERLAY_DISABLED">Head Overlay Off</label></div><div><input type="checkbox" id="pck_anim_FORCE_HEAD_ARMOR" :checked="(anim_flags & 33554432) !== 0" @change="toggleFlag(33554432)"><label for="pck_anim_FORCE_HEAD_ARMOR">Force Head Armor</label></div><div class="pck_anim_separator"></div><div class="pck_anim_group_label">Body</div><div><input type="checkbox" id="pck_anim_BODY_DISABLED" :checked="(anim_flags & 8192) !== 0" @change="toggleFlag(8192)"><label for="pck_anim_BODY_DISABLED">Body Disabled</label></div><div><input type="checkbox" id="pck_anim_BODY_OVERLAY_DISABLED" :checked="(anim_flags & 16777216) !== 0" @change="toggleFlag(16777216)"><label for="pck_anim_BODY_OVERLAY_DISABLED">Body Overlay Off</label></div><div><input type="checkbox" id="pck_anim_FORCE_BODY_ARMOR" :checked="(anim_flags & 268435456) !== 0" @change="toggleFlag(268435456)"><label for="pck_anim_FORCE_BODY_ARMOR">Force Body Armor</label></div><div class="pck_anim_separator"></div><div class="pck_anim_group_label">Misc</div><div><input type="checkbox" id="pck_anim_ALL_ARMOR_DISABLED" :checked="(anim_flags & 256) !== 0" @change="toggleFlag(256)"><label for="pck_anim_ALL_ARMOR_DISABLED">All Armor Disabled</label></div><div><input type="checkbox" id="pck_anim_DO_BACKWARDS_CROUCH" :checked="(anim_flags & 131072) !== 0" @change="toggleFlag(131072)"><label for="pck_anim_DO_BACKWARDS_CROUCH">Backwards Crouch</label></div><div><input type="checkbox" id="pck_anim_RESOLUTION_64x64" :checked="(anim_flags & 262144) !== 0" @change="toggleFlag(262144)"><label for="pck_anim_RESOLUTION_64x64">64×64 Resolution</label></div><div><input type="checkbox" id="pck_anim_SLIM_MODEL" :checked="(anim_flags & 524288) !== 0" @change="toggleFlag(524288)"><label for="pck_anim_SLIM_MODEL">Slim Model</label></div><div><input type="checkbox" id="pck_anim_DINNERBONE" :checked="(anim_flags & 2147483648) !== 0" @change="toggleFlag(2147483648)"><label for="pck_anim_DINNERBONE">Dinnerbone</label></div></div></div>',
+      },
+    }),
+  );
 
   track(
     new Panel({
@@ -1060,14 +1553,451 @@ void main(void) {
     }),
   );
 
+  // ── PSM Import / Export ────────────────────────────────────────────────────
+  //
+  //  Coordinate note:
+  //  PCK Studio / Minecraft store SkinBOX.Pos in bone-local space where Y
+  //  increases DOWNWARD (Pos.Y=0 is the top of the bone). Blockbench is Y-up.
+  //
+  //  Import:  fromY = pivot.Y - psm.posY - psm.sizeY
+  //  Export:  posY  = pivot.Y - cube.from.Y - cube.sizeY
+  //
+  //  X and Z are the same in both systems.
+
+  const PARENT_BYTE_TO_NAME = ["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"];
+  const PARENT_NAME_TO_BYTE = Object.fromEntries(PARENT_BYTE_TO_NAME.map((n, i) => [n, i]));
+
+  // Per-bone data derived from GameConstants.cs
+  // Translation: subtracted in PSM space (from TranslateToInternalPosition)
+  // Pivot: bone origin in Blockbench world space = TransformSpace(pivot,(0,0,0),(1,1,0)) + (0,24,0)
+  const BONE_TRANSLATION = {
+    HEAD: [0, 0, 0],
+    BODY: [0, 0, 0],
+    ARM0: [-5, 2, 0],
+    ARM1: [5, 2, 0],
+    LEG0: [-2, 12, 0],
+    LEG1: [2, 12, 0],
+  };
+  const BONE_BB_PIVOT = {
+    HEAD: [0, 24, 0],
+    BODY: [0, 24, 0],
+    ARM0: [6, 22, 0],
+    ARM1: [-6, 22, 0],
+    LEG0: [2, 12, 0],
+    LEG1: [-2, 12, 0],
+  };
+
+  const OFFSET_BYTE_TO_NAME = [
+    "HEAD",
+    "BODY",
+    "ARM0",
+    "ARM1",
+    "LEG0",
+    "LEG1",
+    "TOOL0",
+    "TOOL1",
+    "HELMET",
+    "SHOULDER0",
+    "SHOULDER1",
+    "CHEST",
+    "WAIST",
+    "PANTS0",
+    "PANTS1",
+    "BOOT0",
+    "BOOT1",
+  ];
+  const OFFSET_NAME_TO_BYTE = Object.fromEntries(OFFSET_BYTE_TO_NAME.map((n, i) => [n, i]));
+
+  const PSM_MAGIC = "psm";
+  const PSM_VERSION = 1;
+
+  function psmReadF32(view, off) {
+    return view.getFloat32(off, true);
+  }
+  function psmReadI32(view, off) {
+    return view.getInt32(off, true);
+  }
+  function psmWriteF32(view, off, v) {
+    view.setFloat32(off, v, true);
+  }
+  function psmWriteI32(view, off, v) {
+    view.setInt32(off, v, true);
+  }
+
+  function decodePSM(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    const magic = String.fromCharCode(bytes[0], bytes[1], bytes[2]);
+    if (magic !== PSM_MAGIC) throw new Error(`Not a PSM file — expected header "psm", got "${magic}"`);
+    const version = bytes[3];
+    if (version !== 1) throw new Error(`Unsupported PSM version ${version} (only v1 is supported)`);
+
+    let cur = 4;
+    const animFlags = psmReadI32(view, cur);
+    cur += 4;
+    const partCount = psmReadI32(view, cur);
+    cur += 4;
+    const parts = [];
+    for (let i = 0; i < partCount; i++) {
+      const parentName = PARENT_BYTE_TO_NAME[bytes[cur]];
+      cur += 1;
+      if (!parentName) throw new Error(`Unknown PSMParentType at part ${i}`);
+      const posX = psmReadF32(view, cur);
+      cur += 4;
+      const posY = psmReadF32(view, cur);
+      cur += 4;
+      const posZ = psmReadF32(view, cur);
+      cur += 4;
+      const sizeX = psmReadF32(view, cur);
+      cur += 4;
+      const sizeY = psmReadF32(view, cur);
+      cur += 4;
+      const sizeZ = psmReadF32(view, cur);
+      cur += 4;
+      const mUvX = bytes[cur];
+      cur += 1;
+      const aUvY = bytes[cur];
+      cur += 1;
+      const inflate = psmReadF32(view, cur);
+      cur += 4;
+      parts.push({
+        parentName,
+        posX,
+        posY,
+        posZ,
+        sizeX,
+        sizeY,
+        sizeZ,
+        uvX: mUvX & 0x7f,
+        uvY: aUvY & 0x7f,
+        mirror: (mUvX & 0x80) !== 0,
+        hideArmor: (aUvY & 0x80) !== 0,
+        inflate,
+      });
+    }
+    const offsetCount = psmReadI32(view, cur);
+    cur += 4;
+    const offsets = [];
+    for (let i = 0; i < offsetCount; i++) {
+      const typeName = OFFSET_BYTE_TO_NAME[bytes[cur]];
+      cur += 1;
+      if (!typeName) throw new Error(`Unknown PSMOffsetType at offset ${i}`);
+      const value = psmReadF32(view, cur);
+      cur += 4;
+      offsets.push({ typeName, value });
+    }
+    return { version, animFlags, parts, offsets };
+  }
+
+  function encodePSM({ animFlags, parts, offsets }) {
+    const total = 3 + 1 + 4 + 4 + parts.length * 31 + 4 + offsets.length * 5;
+    const buffer = new ArrayBuffer(total);
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    bytes[0] = PSM_MAGIC.charCodeAt(0);
+    bytes[1] = PSM_MAGIC.charCodeAt(1);
+    bytes[2] = PSM_MAGIC.charCodeAt(2);
+    bytes[3] = PSM_VERSION;
+    let cur = 4;
+    psmWriteI32(view, cur, animFlags | 0);
+    cur += 4;
+    psmWriteI32(view, cur, parts.length);
+    cur += 4;
+    for (const p of parts) {
+      const pb = PARENT_NAME_TO_BYTE[p.parentName];
+      if (pb === undefined) throw new Error(`Unknown parent bone "${p.parentName}"`);
+      bytes[cur] = pb;
+      cur += 1;
+      psmWriteF32(view, cur, p.posX);
+      cur += 4;
+      psmWriteF32(view, cur, p.posY);
+      cur += 4;
+      psmWriteF32(view, cur, p.posZ);
+      cur += 4;
+      psmWriteF32(view, cur, p.sizeX);
+      cur += 4;
+      psmWriteF32(view, cur, p.sizeY);
+      cur += 4;
+      psmWriteF32(view, cur, p.sizeZ);
+      cur += 4;
+      bytes[cur] = (p.mirror ? 0x80 : 0) | (Math.max(0, Math.min(64, Math.round(p.uvX))) & 0x7f);
+      cur += 1;
+      bytes[cur] = (p.hideArmor ? 0x80 : 0) | (Math.max(0, Math.min(64, Math.round(p.uvY))) & 0x7f);
+      cur += 1;
+      psmWriteF32(view, cur, p.inflate);
+      cur += 4;
+    }
+    psmWriteI32(view, cur, offsets.length);
+    cur += 4;
+    for (const o of offsets) {
+      const tb = OFFSET_NAME_TO_BYTE[o.typeName];
+      if (tb === undefined) throw new Error(`Unknown offset type "${o.typeName}"`);
+      bytes[cur] = tb;
+      cur += 1;
+      psmWriteF32(view, cur, o.value);
+      cur += 4;
+    }
+    return buffer;
+  }
+
+  function modelToPSM() {
+    const armorCubes = new Set(Project.pck_armor_cubes || []);
+    const parts = [];
+    for (const cube of Cube.all) {
+      if (cube.uuid.startsWith("eeeeeeee") || cube.uuid.startsWith("cccccccc")) continue;
+      if (armorCubes.has(cube)) continue;
+      if (cube.pck_template) continue; // base template cubes are never exported
+      const parent = cube.parent;
+      if (!(parent instanceof Group)) continue;
+      // Resolve which root bone this cube belongs to.
+      // Cubes may be directly under a root bone, or inside an offset folder nested under one.
+      let boneName = parent.name;
+      if (PARENT_NAME_TO_BYTE[boneName] === undefined) {
+        // Parent is an offset folder — climb up to the root bone
+        const grandparent = parent.parent;
+        if (!(grandparent instanceof Group)) continue;
+        boneName = grandparent.name;
+        if (PARENT_NAME_TO_BYTE[boneName] === undefined) continue;
+      }
+      const sizeX = cube.to[0] - cube.from[0];
+      const sizeY = cube.to[1] - cube.from[1];
+      const sizeZ = cube.to[2] - cube.from[2];
+      const t = BONE_TRANSLATION[boneName] || [0, 0, 0];
+      // During import fromY had the bone's yOffset subtracted so the cube sits
+      // at the correct world position relative to the shifted pivot.  On export
+      // we must add it back so the PSM position is relative to the unshifted
+      // default pivot — exactly what the game engine expects.
+      const exportBone = Group.all.find((g) => g.name === boneName);
+      const defaultBonePivotY = (BONE_BB_PIVOT[boneName] || [0, 0, 0])[1];
+      const boneYOffset = exportBone ? defaultBonePivotY - exportBone.origin[1] : 0;
+      parts.push({
+        parentName: boneName,
+        // TransformSpace(1,1,0) negates X+Y, leaves Z. _heightOffset=+24 on Y.
+        // TranslateToInternalPosition (SkinModelImporter.cs):
+        //   posX = -bbFrom.X - sizeX - translation.X
+        //   posY = -bbFrom.Y - sizeY + 24 - translation.Y - boneYOffset
+        //   posZ =  bbFrom.Z - translation.Z
+        posX: -cube.from[0] - sizeX - t[0],
+        posY: -cube.from[1] - sizeY + 24 - t[1] - boneYOffset,
+        posZ: cube.from[2] - t[2],
+        sizeX,
+        sizeY,
+        sizeZ,
+        uvX: (cube.uv_offset || [0, 0])[0],
+        uvY: (cube.uv_offset || [0, 0])[1],
+        mirror: !!cube.mirror_uv,
+        hideArmor: !!cube.psm_hide_with_armor,
+        inflate: cube.inflate || 0,
+      });
+    }
+    // Derive offsets from live bone/folder pivots.
+    // Root bones: offset = BONE_BB_PIVOT[name].Y - bone.origin.Y
+    // Offset folders: offset = parentBone.origin.Y - folder.origin.Y
+    const offsets = [];
+    const ROOT_BONE_NAMES = ["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"];
+    const ARMOR_FOLDER_PARENT_MAP = {
+      HELMET: "HEAD",
+      TOOL0: "ARM0",
+      TOOL1: "ARM1",
+      SHOULDER0: "ARM0",
+      SHOULDER1: "ARM1",
+      CHEST: "BODY",
+      PANTS0: "LEG0",
+      PANTS1: "LEG1",
+      BOOT0: "LEG0",
+      BOOT1: "LEG1",
+    };
+
+    ROOT_BONE_NAMES.forEach((boneName) => {
+      const bone = Group.all.find((g) => g.name === boneName);
+      if (!bone) return;
+      const defaultY = (BONE_BB_PIVOT[boneName] || [0, 0, 0])[1];
+      const value = defaultY - bone.origin[1];
+      if (value !== 0) offsets.push({ typeName: boneName, value });
+    });
+
+    const waistBone = Group.all.find((g) => g.name === "WAIST");
+    if (waistBone) {
+      // Import sets waistGroup.origin[1] = 12 + waistOffsetVal, so to recover
+      // the original offset we reverse: value = origin[1] - 12.
+      const value = waistBone.origin[1] - 12;
+      if (value !== 0) offsets.push({ typeName: "WAIST", value });
+    }
+
+    Object.entries(ARMOR_FOLDER_PARENT_MAP).forEach(([folderName, parentName]) => {
+      const folder = Group.all.find((g) => g.name === folderName);
+      if (!folder) return;
+      const parentBone = Group.all.find((g) => g.name === parentName);
+      if (!parentBone) return;
+      const value = parentBone.origin[1] - folder.origin[1];
+      if (value !== 0) offsets.push({ typeName: folderName, value });
+    });
+
+    const animFlags = Project.psm_anim_flags != null ? Project.psm_anim_flags | 0 : 0;
+    return { version: PSM_VERSION, animFlags, parts, offsets };
+  }
+
+  function psmToModel(psm) {
+    // If no pck_skin project is open, create one automatically.
+    if (Format.id !== "pck_skin") {
+      if (!newProject(Formats.pck_skin)) return;
+      Project.pck_skin_pack_uuid = guid();
+      Project.texture_width = 64;
+      Project.texture_height = 64;
+    }
+
+    suppressBoneGuard = true;
+    Undo.initEdit({ elements: [], outliner: true });
+    Project.psm_anim_flags = psm.animFlags;
+    Project.psm_offsets = psm.offsets.map((o) => ({ typeName: o.typeName, value: o.value }));
+
+    // Armor/equipment slot -> parent root bone, for creating nested offset folders.
+    // Pivot for these uses base pivot (0,0,0) from GameConstants (unknown types default to zero).
+    // BB pivot = TransformSpace((0,0,0),0,(1,1,0)) + (0,24,0) - offsetValue * Y = (0, 24-offsetValue, 0)
+    const OFFSET_PARENT_BONE = {
+      HELMET: "HEAD",
+      TOOL0: "ARM0",
+      TOOL1: "ARM1",
+      SHOULDER0: "ARM0",
+      SHOULDER1: "ARM1",
+      CHEST: "BODY",
+      // WAIST is a root-bone offset (shifts the WAIST group pivot) — not an
+      // equipment folder. It is handled above and must NOT appear here or the
+      // import will create a spurious "WAIST" child folder inside BODY.
+      PANTS0: "LEG0",
+      PANTS1: "LEG1",
+      BOOT0: "LEG0",
+      BOOT1: "LEG1",
+    };
+
+    // Build offset lookup: all offset types -> Y value
+    const offsetMap = {};
+    psm.offsets.forEach((o) => {
+      offsetMap[o.typeName] = o.value;
+    });
+
+    // WAIST: upper-body container for HEAD, BODY, ARM0, ARM1 only.
+    // Pivot Y = 12 - (WAIST offset value if present in PSM).
+    const WAIST_BONES = new Set(["HEAD", "BODY", "ARM0", "ARM1"]);
+    const waistOffsetVal = offsetMap["WAIST"] || 0;
+    let rootGroup = Group.all.find((g) => g.name === "ROOT" && !(g.parent instanceof Group));
+    if (!rootGroup) {
+      rootGroup = new Group({ name: "ROOT", origin: [0, 0, 0] }).init();
+      rootGroup.export = false;
+    }
+
+    let waistGroup = Group.all.find((g) => g.name === "WAIST" && g.parent === rootGroup);
+    if (!waistGroup) {
+      waistGroup = new Group({ name: "WAIST", origin: [0, 12 + waistOffsetVal, 0] }).addTo(rootGroup).init();
+      waistGroup.export = false;
+    } else {
+      // Update WAIST pivot to match the PSM offset.
+      waistGroup.origin[1] = 12 + waistOffsetVal;
+      waistGroup.updateElement();
+    }
+
+    // Build a map of existing root bones, creating any that are missing.
+    // HEAD/BODY/ARM0/ARM1 nest under WAIST; LEG0/LEG1 stay at root.
+    // Root bone pivot = BONE_BB_PIVOT shifted by the PSM offset on Y.
+    const boneMap = {};
+    Group.all.forEach((g) => {
+      if (PARENT_NAME_TO_BYTE[g.name] !== undefined) boneMap[g.name] = g;
+    });
+    TEMPLATE_BONES.forEach((boneDef) => {
+      const basePivot = BONE_BB_PIVOT[boneDef.name] || [0, 0, 0];
+      const yOffset = offsetMap[boneDef.name] || 0;
+      const targetOrigin = [basePivot[0], basePivot[1] - yOffset, basePivot[2]];
+      if (boneMap[boneDef.name]) {
+        // Bone already exists — update its pivot to match the PSM offsets.
+        const g = boneMap[boneDef.name];
+        g.origin[0] = targetOrigin[0];
+        g.origin[1] = targetOrigin[1];
+        g.origin[2] = targetOrigin[2];
+        g.updateElement();
+      } else {
+        const g = new Group({
+          name: boneDef.name,
+          origin: targetOrigin,
+        });
+        if (WAIST_BONES.has(boneDef.name)) g.addTo(waistGroup);
+        else if (boneDef.name === "LEG0" || boneDef.name === "LEG1") g.addTo(rootGroup);
+        boneMap[boneDef.name] = g.init();
+      }
+    });
+
+    // Create armor/equipment offset folders as empty groups nested under their parent bone.
+    // Pivot Y = parentBonePivotY - offsetValue (relative to the parent's actual live pivot).
+    // e.g. HEAD pivot Y=11, HELMET offset=1 -> HELMET pivot Y = 11 - 1 = 10
+    psm.offsets.forEach((o) => {
+      const parentName = OFFSET_PARENT_BONE[o.typeName];
+      if (!parentName) return; // skip root bones — already handled above
+      const parentBone = boneMap[parentName];
+      if (!parentBone) return;
+      // Don't duplicate if already present
+      const exists = Group.all.some((g) => g.name === o.typeName && g.parent === parentBone);
+      if (exists) return;
+      const parentPivotY = parentBone.origin[1];
+      new Group({
+        name: o.typeName,
+        origin: [0, parentPivotY - o.value, 0],
+      })
+        .addTo(parentBone)
+        .init();
+    });
+
+    // Remove previously-imported PSM cubes so re-importing is clean.
+    Cube.all.filter((c) => c.psm_imported).forEach((c) => c.remove());
+
+    for (const p of psm.parts) {
+      const bone = boneMap[p.parentName];
+      if (!bone) continue;
+      // Inverse of TranslateToInternalPosition (SkinModelImporter.cs):
+      //   psmPos = TransformSpace(bbFrom, size, (1,1,0)) + (0,24,0) - translation
+      //   bbFrom.X = -psmPos.X - sizeX - translation.X
+      //   bbFrom.Y = -psmPos.Y - sizeY + 24 - translation.Y
+      //   bbFrom.Z =  psmPos.Z + translation.Z
+      // The offset shifts both the bone pivot and the box positions equally,
+      // so we also subtract it from Y to keep boxes at the correct world position.
+      const t = BONE_TRANSLATION[p.parentName] || [0, 0, 0];
+      const yOffset = offsetMap[p.parentName] || 0;
+      const fromX = -p.posX - p.sizeX - t[0];
+      const fromY = -p.posY - p.sizeY + 24 - t[1] - yOffset;
+      const fromZ = p.posZ + t[2];
+      const cube = new Cube({
+        name: p.parentName,
+        from: [fromX, fromY, fromZ],
+        to: [fromX + p.sizeX, fromY + p.sizeY, fromZ + p.sizeZ],
+        inflate: p.inflate,
+        box_uv: true,
+        uv_offset: [p.uvX, p.uvY],
+        mirror_uv: p.mirror,
+      });
+      cube.psm_imported = true;
+      cube.psm_hide_with_armor = p.hideArmor;
+      cube.addTo(bone).init();
+    }
+    Undo.finishEdit("Import PSM");
+    suppressBoneGuard = false;
+    Canvas.updateAll();
+    // Sync the ANIM flags panel to reflect the imported flags,
+    // then show/hide template cubes to match.
+    const animPanel = Interface.Panels.pck_anim;
+    if (animPanel && animPanel.inside_vue) {
+      animPanel.inside_vue.anim_flags = Project.psm_anim_flags || 0;
+    }
+    restoreTemplateCubes();
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   Plugin.register("pck_skin_helper", {
     title: "PCK Skin Helper",
     author: "BehaviorPack",
     icon: "icon-player",
     description: "Create Minecraft Legacy Console skins and export them for PCK Studio",
     about:
-      'To get started, click "<b>PCK Skin</b>"<br>└─ You can delete <b>cape.png</b> or replace it with your own.<br>Use "<b>Validate PCK Skin</b>" to make sure it\'ll import correctly.<br>└─ You can also click "<b>Preview</b>" to display Armor placement and animations.<br>Click "<b>Export Legacy Project</b>" and import into PCK Studio.<br><br><img src="data:image/png;base64,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"><br><p class="note"><i>Note that your Skin Texture can <b>not</b> be greater than 32kb and your UV can <b>only</b> be 64x64 or 64x32.</i></p>',
-    version: "1.0.0",
+      'To get started, click "<b>PCK Skin</b>"<br>└─ You can delete <b>cape.png</b> or replace it with your own.<br>└─ "<b>Preview</b>" to display Armor placement and Animations.<br>└─ "<b>ANIM FLAGS</b>" is for controlling parts of your Skin ingame.<br>You can click "<b>Import PSM..</b>" to import a Skin from PCK Studio.<br>You can also "<b>Export PSM..</b>" to transfer it back to PCK Studio.<br>Use "<b>Validate PCK Skin</b>" to make sure your Skin will import correctly.<br><br><img src="data:image/png;base64,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"><br><p class="note"><i>Note that your Skin Texture can <b>not</b> be greater than 32kb and your UV can <b>only</b> be 64x64 or 64x32.</i></p><br>A option to "<b>Unlock Root Bones</b>" exist but is not recommended.',
+    version: "1.0.1",
     min_version: "4.0.0",
     creation_date: "2026-03-11",
     variant: "both",
@@ -1092,11 +2022,96 @@ void main(void) {
         },
       });
       MenuBar.addAction(this.actionValidate, "file.export");
+
+      this.actionImportPSM = new Action("import_psm", {
+        name: "Import PSM…",
+        description: "Import custom skin boxes from a PCK Studio PSM file",
+        icon: "download",
+        condition: { formats: ["pck_skin"] },
+        click() {
+          Blockbench.import({ type: "PSM File", extensions: ["psm"], multiple: false, readtype: "binary" }, (files) => {
+            const file = files[0];
+            if (!file) return;
+            let psm;
+            try {
+              psm = decodePSM(file.content);
+            } catch (err) {
+              Blockbench.showMessageBox({
+                title: "PSM Import Error",
+                message: `Failed to read PSM: ${err.message}`,
+                buttons: ["OK"],
+              });
+              return;
+            }
+            psmToModel(psm);
+            Blockbench.showQuickMessage(
+              `Imported ${psm.parts.length} box${psm.parts.length !== 1 ? "es" : ""} from PSM`,
+              2200,
+            );
+          });
+        },
+      });
+
+      this.actionExportPSM = new Action("export_psm", {
+        name: "Export PSM…",
+        description: "Export custom skin boxes as a PCK Studio PSM file",
+        icon: "upload",
+        condition: { formats: ["pck_skin"] },
+        click() {
+          if (!validateSkeleton()) return;
+          let buffer;
+          try {
+            buffer = encodePSM(modelToPSM());
+          } catch (err) {
+            Blockbench.showMessageBox({
+              title: "PSM Export Error",
+              message: `Failed to encode PSM: ${err.message}`,
+              buttons: ["OK"],
+            });
+            return;
+          }
+          // custom_writer bypasses Blockbench's built-in UTF-8 string writer.
+          // Blockbench shows the native Save dialog, then calls custom_writer(content, path).
+          // We ignore content and write the raw ArrayBuffer as a binary Buffer instead.
+          Blockbench.export({
+            type: "PSM File",
+            extensions: ["psm"],
+            name: (Project.name || "skin").replace(/\s+/g, "_"),
+            content: "",
+            custom_writer(content, path) {
+              fs.writeFileSync(path, Buffer.from(buffer));
+            },
+          });
+        },
+      });
+
+      this.actionToggleLock = new Action("pck_toggle_bone_lock", {
+        name: "Unlock Root Bones",
+        description: "Toggle locking of root skeleton bones (HEAD, BODY, ARM0/1, LEG0/1, WAIST, ROOT)",
+        icon: "lock_open",
+        condition: { formats: ["pck_skin"] },
+        click() {
+          boneLockEnabled = !boneLockEnabled;
+          this.name = boneLockEnabled ? "Unlock Root Bones" : "Lock Root Bones";
+          this.icon = boneLockEnabled ? "lock_open" : "lock";
+          Blockbench.showQuickMessage(
+            boneLockEnabled ? "Root bones are now locked." : "Root bones are now unlocked — be careful!",
+            2000,
+          );
+        },
+      });
+
+      MenuBar.addAction(this.actionImportPSM, "file.import");
+      MenuBar.addAction(this.actionExportPSM, "file.export");
+      MenuBar.addAction(this.actionToggleLock, "file");
     },
 
     onunload() {
       this.actionNew.delete();
       this.actionValidate.delete();
+      this.actionImportPSM.delete();
+      this.actionExportPSM.delete();
+      this.actionToggleLock.delete();
       registered.forEach((item) => {
         if (typeof item.delete === "function") item.delete();
         else if (typeof item.remove === "function") item.remove();
