@@ -41,7 +41,14 @@
       pivot: [0, 24, 0],
       cubes: [
         { cubeName: "HEAD", origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, animFlag: 0x400 },
-        { cubeName: "HEADWEAR", origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25, animFlag: 0x10000 },
+        {
+          cubeName: "HEADWEAR",
+          origin: [-4.25, 23.75, -4.25],
+          size: [8, 8, 8],
+          uv: [32, 0],
+          inflate: 0.25,
+          animFlag: 0x10000,
+        },
       ],
     },
     {
@@ -51,7 +58,7 @@
         { cubeName: "BODY", origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 16], inflate: 0, animFlag: 0x2000 },
         {
           cubeName: "JACKET",
-          origin: [-4, 12, -2],
+          origin: [-4.25, 11.75, -2.25],
           size: [8, 12, 4],
           uv: [16, 32],
           inflate: 0.25,
@@ -64,7 +71,14 @@
       pivot: [6, 22, 0],
       cubes: [
         { cubeName: "ARM0", origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 16], inflate: 0, animFlag: 0x800 },
-        { cubeName: "SLEEVE0", origin: [4, 12, -2], size: [4, 12, 4], uv: [40, 32], inflate: 0.25, animFlag: 0x200000 },
+        {
+          cubeName: "SLEEVE0",
+          origin: [3.7, 11.75, -2.25],
+          size: [4, 12, 4],
+          uv: [40, 32],
+          inflate: 0.25,
+          animFlag: 0x200000,
+        },
       ],
     },
     {
@@ -74,7 +88,7 @@
         { cubeName: "ARM1", origin: [-8, 12, -2], size: [4, 12, 4], uv: [32, 48], inflate: 0, animFlag: 0x1000 },
         {
           cubeName: "SLEEVE1",
-          origin: [-8, 12, -2],
+          origin: [-8.28, 11.75, -2.25],
           size: [4, 12, 4],
           uv: [48, 48],
           inflate: 0.25,
@@ -87,7 +101,14 @@
       pivot: [2, 12, 0],
       cubes: [
         { cubeName: "LEG0", origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 16], inflate: 0, animFlag: 0x4000 },
-        { cubeName: "PANT0", origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 32], inflate: 0.25, animFlag: 0x800000 },
+        {
+          cubeName: "PANT0",
+          origin: [-0.25, 0.75, -2.25],
+          size: [4, 12, 4],
+          uv: [0, 32],
+          inflate: 0.25,
+          animFlag: 0x800000,
+        },
       ],
     },
     {
@@ -95,7 +116,14 @@
       pivot: [-2, 12, 0],
       cubes: [
         { cubeName: "LEG1", origin: [-4, 0, -2], size: [4, 12, 4], uv: [16, 48], inflate: 0, animFlag: 0x8000 },
-        { cubeName: "PANT1", origin: [-4, 0, -2], size: [4, 12, 4], uv: [0, 48], inflate: 0.25, animFlag: 0x400000 },
+        {
+          cubeName: "PANT1",
+          origin: [-4.25, 0.75, -2.25],
+          size: [4, 12, 4],
+          uv: [0, 48],
+          inflate: 0.25,
+          animFlag: 0x400000,
+        },
       ],
     },
   ];
@@ -111,11 +139,284 @@
   // Flat set of all template cube names (for guard checks).
   const TEMPLATE_CUBE_NAMES = new Set(Object.keys(TEMPLATE_CUBE_FLAG));
 
-  // Persistent registry of template cube uuids — populated when cubes are created,
-  // cleared on project close/new.  Survives deletion so the guard can still identify
-  // which uuids were template cubes even after they have been removed from Cube.all.
-  const TEMPLATE_UUID_REGISTRY = new Set();
+  // ── Template Ghost Meshes ────────────────────────────────────────────────
+  // Instead of real Cube objects (which appear in the outliner), we inject
+  // pure Three.js meshes directly into the scene.  They are completely
+  // invisible to the outliner and cannot be selected, moved, or deleted.
 
+  // Container added once to the scene; all ghost meshes live here.
+  // Rotated 180° around Y so that +Z faces the viewer (matching Blockbench's
+  // convention where the model front faces -Z in world space).
+  const _templateGhostRoot = new THREE.Object3D();
+  _templateGhostRoot.name = "pck_template_ghosts";
+  _templateGhostRoot.rotation.y = Math.PI;
+  scene.add(_templateGhostRoot);
+  track({
+    remove() {
+      scene.remove(_templateGhostRoot);
+    },
+  });
+
+  // Default fallback skin texture — loaded once from the plugin's own base64.
+  // Used when the project has no texture yet (or the texture map isn't ready).
+  let _fallbackSkinMap = null;
+  function _getFallbackSkinMap(defaultSkinB64) {
+    if (_fallbackSkinMap) return _fallbackSkinMap;
+    const img = new Image();
+    img.src = defaultSkinB64;
+    const map = new THREE.Texture(img);
+    map.magFilter = THREE.NearestFilter;
+    map.minFilter = THREE.NearestFilter;
+    img.onload = () => {
+      map.needsUpdate = true;
+    };
+    _fallbackSkinMap = map;
+    return map;
+  }
+
+  // Build UV attribute for a THREE.BoxGeometry matching Minecraft box-UV layout.
+  //
+  // Minecraft box-UV pixel regions (W=sizeX, H=sizeY, D=sizeZ, u/v = uv_offset):
+  //   right  (+X): [u,         v+D] .. [u+D,         v+D+H]
+  //   left   (-X): [u+D+W,     v+D] .. [u+D+W+D,     v+D+H]
+  //   top    (+Y): [u+D,       v  ] .. [u+D+W,        v+D  ]
+  //   bottom (-Y): [u+D+W,     v  ] .. [u+D+W+W,      v+D  ]
+  //   front  (+Z): [u+D,       v+D] .. [u+D+W,        v+D+H]
+  //   back   (-Z): [u+D+W+D,   v+D] .. [u+D+W+D+W,   v+D+H]
+  //
+  // THREE.BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
+  // Each face has 4 vertices written as: tl, bl, tr, br
+  // (top-left, bottom-left, top-right, bottom-right of the face as seen from outside)
+  //
+  // Mirror analysis (derived from BoxGeometry buildPlane udir/vdir):
+  //   +X right:  Three.js uv.x=0 -> +Z front, Minecraft left col = back  -> mirrorU=YES
+  //   -X left:   Three.js uv.x=0 -> -Z back,  Minecraft left col = front -> mirrorU=YES
+  //   +Y top:    no mirror needed
+  //   -Y bottom: no mirror needed
+  //   +Z front:  no mirror needed
+  //   -Z back:   no mirror needed
+  // mirrorX: when true, mirrors the entire box horizontally (left/right faces swap,
+  // all U coordinates flipped). Used for the 64x32 classic layout where ARM1/LEG1
+  // share the same UV strip as ARM0/LEG0 but are rendered on the opposite side.
+  function _buildBoxUVs(W, H, D, uvOffset, uvW, uvH, mirrorX, mirrorBottom) {
+    const u = uvOffset[0];
+    const v = uvOffset[1];
+
+    // pixel (px,py) -> normalised UV. Three.js V=0 is bottom so we flip V.
+    function n(px, py) {
+      return [px / uvW, 1.0 - py / uvH];
+    }
+
+    // Build 8 UV values for one face in BoxGeometry vertex order: tl, tr, bl, br.
+    // mirrorU swaps left/right so the texture strip reads in the correct direction.
+    // When mirrorX is active the effective mirror is inverted for every face.
+    function face(fu, fv, fw, fh, mirrorU, mirrorV) {
+      const m = mirrorX ? !mirrorU : mirrorU;
+      const l = m ? fu + fw : fu;
+      const r = m ? fu : fu + fw;
+      const t = mirrorV ? fv + fh : fv;
+      const b = mirrorV ? fv : fv + fh;
+      return [...n(l, t), ...n(r, t), ...n(l, b), ...n(r, b)];
+    }
+
+    // Face order: +X, -X, +Y, -Y, +Z, -Z
+    // When mirrorX is set the +X and -X slots are swapped so the side panels
+    // sample the correct (now-mirrored) region of the UV strip.
+    const faceRight = face(u + D + W, v + D, D, H, false); // +X side
+    const faceLeft = face(u, v + D, D, H, false); // -X side
+    const faces = [
+      mirrorX ? faceLeft : faceRight, // +X slot
+      mirrorX ? faceRight : faceLeft, // -X slot
+      face(u + D, v, W, D, false), // +Y top
+      face(u + D + W, v, W, D, false, !!mirrorBottom), // -Y bottom
+      face(u + D, v + D, W, H, false), // +Z front
+      face(u + D + W + D, v + D, W, H, false), // -Z back
+    ];
+
+    const arr = new Float32Array(24 * 2);
+    faces.forEach((f, fi) => {
+      for (let i = 0; i < 8; i++) arr[fi * 8 + i] = f[i];
+    });
+    return arr;
+  }
+
+  function _getSkinMap() {
+    const tex = Texture.all[0];
+    if (!tex) return null;
+    const mat = tex.getMaterial && tex.getMaterial();
+    if (!mat) return null;
+    return mat.map || (mat.uniforms && mat.uniforms.map && mat.uniforms.map.value) || null;
+  }
+
+  const GHOST_VERT = [
+    "varying vec2 vUv;",
+    "varying float light;",
+    "uniform bool SHADE;",
+    "void main() {",
+    "  if (SHADE) {",
+    "    vec3 N = vec3(modelMatrix * vec4(normal, 0.0));",
+    "    float yLight = (1.0 - N.z) * 0.5;",
+    "    light = yLight * 0.4 + N.x*N.x * 0.075 + N.y*N.y * 0.175 + 0.6;",
+    "  } else { light = 1.0; }",
+    "  vUv = uv;",
+    "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+    "}",
+  ].join("\n");
+
+  const GHOST_FRAG = [
+    "#ifdef GL_ES",
+    "precision highp float;",
+    "#endif",
+    "uniform sampler2D t0;",
+    "varying vec2 vUv;",
+    "varying float light;",
+    "void main(void) {",
+    "  vec4 tx = texture2D(t0, vUv);",
+    "  gl_FragColor = vec4(tx.rgb * light, tx.a);",
+    "  if (gl_FragColor.a < 0.05) discard;",
+    "}",
+  ].join("\n");
+
+  function _buildGhostMaterial(map) {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        t0: { value: map },
+        SHADE: { value: settings.shading.value },
+      },
+      vertexShader: GHOST_VERT,
+      fragmentShader: GHOST_FRAG,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: true,
+    });
+  }
+
+  // Slim-arm overrides applied when the SLIM_MODEL ANIM flag (0x80000) is set.
+  // These replace the standard 4-wide arm/sleeve cubes with the 3-wide Alex variants.
+  // Both arms are shifted 1 unit towards the body (ARM0 origin.x +1, ARM1 origin.x +1).
+  const SLIM_ARM_OVERRIDES = {
+    ARM0: { origin: [4, 12, -2], size: [3, 12, 4], uv: [40, 16] },
+    SLEEVE0: { origin: [3.75, 11.75, -2.25], size: [3, 12, 4], uv: [40, 32] },
+    ARM1: { origin: [-7, 12, -2], size: [3, 12, 4], uv: [32, 48] },
+    SLEEVE1: { origin: [-7.25, 11.75, -2.25], size: [3, 12, 4], uv: [48, 48] },
+  };
+
+  // Classic 64×32 layout overrides applied when neither SLIM_MODEL (0x80000)
+  // nor RESOLUTION_64x64 (0x40000) is set.
+  //
+  // The 64×32 texture has no second-layer rows (V ≥ 32), so:
+  //   • All overlay cubes (HEADWEAR, JACKET, SLEEVE0/1, PANT0/1) are hidden.
+  //   • ARM1 / LEG1 mirror their counterpart's UV instead of using the
+  //     64×64-only bottom-half UV coordinates.
+  //   • The UV normaliser uses height=32 so V coords map correctly.
+  const CLASSIC_32_OVERLAY_CUBES = new Set(["HEADWEAR", "JACKET", "SLEEVE0", "SLEEVE1", "PANT0", "PANT1"]);
+  const CLASSIC_32_UV_OVERRIDES = {
+    ARM1: { uv: [40, 16], mirrorX: true }, // same UV strip as ARM0, mirrored horizontally
+    LEG1: { uv: [0, 16], mirrorX: true }, // same UV strip as LEG0, mirrored horizontally
+  };
+
+  // Rebuild all ghost meshes. Called after skeleton is built and on texture/flag change.
+  //
+  // Each ghost mesh is parented directly to the corresponding real Blockbench bone's
+  // THREE.js mesh (group.mesh), so the animator drives the ghosts automatically —
+  // rotations, translations and the full bone hierarchy all apply for free.
+  //
+  // Ghost cube positions are expressed in bone-local space:
+  //   local = cube_world_center - bone_pivot
+  //
+  // The _templateGhostRoot container is kept only as a scene-level owner for cleanup;
+  // actual ghost meshes live under their bone's group.mesh, not under this root.
+  function rebuildTemplateGhosts() {
+    // Clear old ghosts — remove from wherever they were parented
+    const oldGhosts = [];
+    _templateGhostRoot.traverse((obj) => {
+      if (obj !== _templateGhostRoot) oldGhosts.push(obj);
+    });
+    oldGhosts.forEach((obj) => obj.parent && obj.parent.remove(obj));
+    // Also sweep any ghosts that may have been parented directly to bone meshes
+    Group.all.forEach((group) => {
+      if (!group.mesh) return;
+      const toRemove = group.mesh.children.filter((c) => c.name && c.name.startsWith("pck_ghost_"));
+      toRemove.forEach((c) => group.mesh.remove(c));
+    });
+
+    if (!Format || Format.id !== "pck_skin") return;
+    if (!Project) return;
+
+    const skinMap = _getSkinMap() || _getFallbackSkinMap(_DEFAULT_SKIN_B64);
+    const texH = (Texture.all[0] && Texture.all[0].height) || 64;
+    const flags = Project.psm_anim_flags || 0;
+    const isSlim = (flags & 0x80000) !== 0;
+    const is64x64 = (flags & 0x40000) !== 0;
+    // Classic 64×32 mode: neither Slim nor 64×64 is checked
+    const isClassic32 = !isSlim && !is64x64;
+
+    TEMPLATE_BONES.forEach((boneDef) => {
+      // Find the live Blockbench Group for this bone
+      const boneGroup = Group.all.find((g) => g.name === boneDef.name);
+      // group.mesh is the Three.js Object3D the animator drives.
+      // Fall back to _templateGhostRoot if the bone isn't ready yet (shouldn't happen
+      // after Canvas.updateAll(), but be safe).
+      const boneTarget = boneGroup && boneGroup.mesh ? boneGroup.mesh : _templateGhostRoot;
+      const pivot = boneDef.pivot; // [px, py, pz] in Blockbench world space
+
+      boneDef.cubes.forEach((cubeDef) => {
+        // Respect ANIM flags — skip ghost when the flag bit is set
+        if (cubeDef.animFlag !== undefined && (flags & cubeDef.animFlag) !== 0) return;
+
+        // Classic 64×32: hide all second-layer (overlay) cubes
+        if (isClassic32 && CLASSIC_32_OVERLAY_CUBES.has(cubeDef.cubeName)) return;
+
+        // Determine geometry/UV source in priority order:
+        //   1. Slim overrides (3-wide arms)       — when SLIM_MODEL is set
+        //   2. Classic 32 UV overrides (mirrored) — when neither flag is set
+        //   3. Default TEMPLATE_BONES values       — when RESOLUTION_64x64 is set
+        const slimOverride = isSlim ? SLIM_ARM_OVERRIDES[cubeDef.cubeName] : null;
+        const classic32Override = isClassic32 ? CLASSIC_32_UV_OVERRIDES[cubeDef.cubeName] : null;
+
+        const origin = slimOverride ? slimOverride.origin : cubeDef.origin;
+        const size = slimOverride ? slimOverride.size : cubeDef.size;
+        const uv = slimOverride ? slimOverride.uv : classic32Override ? classic32Override.uv : cubeDef.uv;
+        const mirrorX = slimOverride ? !!slimOverride.mirrorX : classic32Override ? !!classic32Override.mirrorX : false;
+
+        // Classic 64×32 textures are 32px tall; use that as the UV normaliser height
+        const uvTexH = isClassic32 ? 32 : texH;
+
+        const [ox, oy, oz] = origin;
+        const [sw, sh, sd] = size;
+        const inf = cubeDef.inflate || 0;
+
+        // The head cubes' bottom face needs V-flipping due to Three.js winding
+        const mirrorBottom = cubeDef.cubeName === "HEAD" || cubeDef.cubeName === "HEADWEAR";
+
+        const geom = new THREE.BoxGeometry(sw + inf * 2, sh + inf * 2, sd + inf * 2);
+        const uvs = _buildBoxUVs(sw, sh, sd, uv, 64, uvTexH, mirrorX, mirrorBottom);
+        geom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+
+        const mat = _buildGhostMaterial(skinMap);
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.name = "pck_ghost_" + cubeDef.cubeName;
+
+        // Cube world-space centre
+        const cx = ox + (sw + inf * 2) / 2;
+        const cy = oy + (sh + inf * 2) / 2;
+        const cz = oz + (sd + inf * 2) / 2;
+
+        if (boneTarget === _templateGhostRoot) {
+          // Fallback path: _templateGhostRoot is rotated 180° around Y, so negate X and Z
+          mesh.position.set(-cx, cy, -cz);
+        } else {
+          // Bone-local space: offset from the bone pivot.
+          mesh.position.set(cx - pivot[0], cy - pivot[1], cz - pivot[2]);
+          // Rotate 180° on Y so the UV faces align correctly with Blockbench's
+          // bone scene graph orientation (bone meshes are already Y-rotated 180°).
+          mesh.rotation.y = Math.PI;
+        }
+
+        boneTarget.add(mesh);
+      });
+    });
+  }
   function buildTemplateSkeleton() {
     // ROOT is the top-level container — locked, not exported, pivot at origin.
     const rootGroup = new Group({ name: "ROOT", origin: [0, 0, 0] }).init();
@@ -131,36 +432,14 @@
       let parent;
       if (WAIST_BONES.has(boneDef.name)) parent = waistGroup;
       else if (LEG_BONES.has(boneDef.name)) parent = rootGroup;
-      const group = new Group({
-        name: boneDef.name,
-        origin: boneDef.pivot,
-      });
+      const group = new Group({ name: boneDef.name, origin: boneDef.pivot });
       if (parent) group.addTo(parent);
       group.init();
-
-      boneDef.cubes.forEach((cubeDef) => {
-        const from = cubeDef.origin.slice();
-        const to = [
-          cubeDef.origin[0] + cubeDef.size[0],
-          cubeDef.origin[1] + cubeDef.size[1],
-          cubeDef.origin[2] + cubeDef.size[2],
-        ];
-
-        const cube = new Cube({
-          name: cubeDef.cubeName,
-          from,
-          to,
-          inflate: cubeDef.inflate,
-          box_uv: true,
-          uv_offset: cubeDef.uv,
-        })
-          .addTo(group)
-          .init();
-        cube.pck_template = true;
-        cube.pck_anim_flag = cubeDef.animFlag;
-        TEMPLATE_UUID_REGISTRY.add(cube.uuid);
-      });
     });
+
+    // Ghost meshes are built once the skeleton Groups have their .mesh assigned,
+    // which happens after Canvas.updateAll() in the caller.
+    requestAnimationFrame(() => rebuildTemplateGhosts());
   }
 
   function onNameChanged({ object, new_name, old_name }) {
@@ -241,66 +520,9 @@
       return;
     }
 
-    if (pivotChanged && Modes.animate) {
-      rebuildArmorCubes();
-    }
-  }
-
-  // Returns the snapshot bounds key for a cube for comparison.
-  function cubeKey(c) {
-    return [c.from[0], c.from[1], c.from[2], c.to[0], c.to[1], c.to[2], c.inflate || 0].join(",");
-  }
-
-  function onFinishedEditCubeGuard() {
-    if (Format.id !== "pck_skin") return;
-    if (!boneLockEnabled || suppressBoneGuard) return;
-    if (TEMPLATE_UUID_REGISTRY.size === 0) return;
-    const last = Undo.history[Undo.history.length - 1];
-    if (!last || !last.before) return;
-
-    // Use the persistent registry — NOT Cube.all — so we can detect deletions
-    // even after the cube has already been removed from the scene.
-    // Guard is uuid-only: user cubes named "HEAD" etc. are never affected.
-    const beforeElements = last.before.elements || {};
-    const allCubeUuids = new Set(Cube.all.map((c) => c.uuid));
-    const templateByUuid = {};
-    Cube.all.forEach((c) => {
-      if (c.pck_template) templateByUuid[c.uuid] = c;
-    });
-
-    let violated = false;
-
-    TEMPLATE_UUID_REGISTRY.forEach((uuid) => {
-      if (!beforeElements[uuid]) return; // wasn't part of this edit
-
-      // 1. Deletion check
-      if (!allCubeUuids.has(uuid)) {
-        violated = true;
-        return;
-      }
-
-      // 2. Resize check
-      const current = templateByUuid[uuid];
-      if (!current) return;
-      const snap = beforeElements[uuid];
-      const snapKey = [
-        snap.from[0],
-        snap.from[1],
-        snap.from[2],
-        snap.to[0],
-        snap.to[1],
-        snap.to[2],
-        snap.inflate || 0,
-      ].join(",");
-      if (cubeKey(current) !== snapKey) violated = true;
-    });
-
-    if (violated) {
-      Undo.loadSave(last.before, last.post);
-      Undo.history.pop();
-      Undo.index = Undo.history.length;
-      Blockbench.showQuickMessage("Template cubes cannot be deleted or resized — use ANIM flags to hide them.", 2800);
-      Canvas.updateAll();
+    if (pivotChanged) {
+      rebuildTemplateGhosts();
+      if (Modes.animate) rebuildArmorCubes();
     }
   }
 
@@ -312,7 +534,16 @@
   }
 
   function onCloseProject() {
-    TEMPLATE_UUID_REGISTRY.clear();
+    // Clear ghost meshes — they may be parented to bone meshes, not _templateGhostRoot
+    const oldGhosts = [];
+    _templateGhostRoot.traverse((obj) => {
+      if (obj !== _templateGhostRoot) oldGhosts.push(obj);
+    });
+    oldGhosts.forEach((obj) => obj.parent && obj.parent.remove(obj));
+    Group.all.forEach((group) => {
+      if (!group.mesh) return;
+      group.mesh.children.filter((c) => c.name && c.name.startsWith("pck_ghost_")).forEach((c) => group.mesh.remove(c));
+    });
     // Reset lock state so each new project starts locked.
     if (!boneLockEnabled) {
       boneLockEnabled = true;
@@ -326,7 +557,6 @@
 
   Blockbench.on("change_element_name", onNameChanged);
   Blockbench.on("finished_edit", onFinishedEdit);
-  Blockbench.on("finished_edit", onFinishedEditCubeGuard);
   Blockbench.on("add_cube", onCubeAdded);
   Blockbench.on("close_project", onCloseProject);
 
@@ -334,7 +564,6 @@
     delete() {
       Blockbench.removeListener("change_element_name", onNameChanged);
       Blockbench.removeListener("finished_edit", onFinishedEdit);
-      Blockbench.removeListener("finished_edit", onFinishedEditCubeGuard);
       Blockbench.removeListener("add_cube", onCubeAdded);
       Blockbench.removeListener("close_project", onCloseProject);
     },
@@ -740,10 +969,8 @@
       animPanel.inside_vue.anim_flags = Project.psm_anim_flags;
     }
 
-    const defaultSkinB64 =
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAGlQTFRFAAAAKBsLLB8OjFs/OCUSfU0xsHROIBUHRCwXwoZrzJF216OL////QiYdXjIqfz83Dw0UFRMcNzc3KigoPz8/HRooIR0w0tLhycfb8fHwvyUpKiY4q6XBKDQamyIavbrTUVFRdXV17TAsPTNTLwAAACN0Uk5TAP////////////////////////////////////////////+k8FOOAAADn0lEQVR4nO1X227cNhCdEUll0TgXJ3EL5CH//1V9KVCgaW527ToWKTLnDKm1rF1ntTZSIEC1K1G8Hc6NnCOVdqlowaN0rT7Kuku3L9qN2mUAECI/AMDloviFUqvD8RIUvBf1DwbAn0p0o6ngjgboBDYsDiW1d3I8AAzIijqrjg/wghTYERIQYVzvBaXz+wHPzicBgvQDWtBjraUcBED89BIlRCyeO/yCcKJjCZEOAlB3YQQFh4XHJKy7jK5AsVZIQIkxdmOxLOWr9JE6qWmhkleogPCD8TsdxZU8FolqMQmgIPEgAPyvoeNGAky0MsdCw0rEPRxU4cnQF9Pe3TyTi81o7zr0AybLGgDnmt9dxCTg1DhAGHiU6WA8WCC95DmgpfvQGs/OgTLKi+SBgPtzaz/F+w0EHJYA7HBZy6fW+OtHK17TFHTl3xMw3q8QW9f7AHQmwdEAVMHPJDjrLuCO53mVCqdwIwexYEmrIyi/jK9zjrZCQZjXvqlfZ6B6SiG9lkQcjE6sB4RHLpEK+Am6qcN+P1NLz6JNRNSwHbGMdZJ3iMruGpM9QzoG9GC3IeQi+1nMAdhQARi8WCHK09h5TSYNGlKwucLQrgAS398BGGwgh0jPYE7el3Hz1QKbYv/C4DaESQK5C8DjALbiioGrRunDVZUGM6O9cIhWFVncVYHtUMEMZYZP3ppRS4D3VtRjqhqxyBbg1IxXJlu32DCDSYUrsGFJi02ln+cABLbRDcO8Ffo4TWJ3D8fy0NMncoP8l/+a+t7kDD8msaPhRC41Na/2Vd/J/5fYrxi0fVxvAfDIz/Wc+egE9zl1hM4lNH2luvLKhqe6u53f7gd9RbH05B+KRRCTxdvUKWxt5o2YlZItj7Z/55vpMdf/AD8W4O3m98cBvEt/Pg5g3fUTATAnYBO0/ZHk9jzw27xzJ4ksr9/uOw+mibIF+kEq/LcAy2S7L6l+F2CZ7vel9YMAc8JxNMCS8hylwj6+oI0b7IuTvQCkC9J4wMQHZEF37gU4SzWpASFMfEFDzc7M8e/XATCNAwBZe+IDxjBmvOB+gGiJqCcA+UJofEBqbQ2AcHwgQM1PlQ+oURyRVSo0whBuSVWpdA15+qARqxu1MQ5Z8oI6idm8nQ8754HxKi6Z7COubNr+l8V5sK0vz4M3/O4iYSid8QWm9VtmIDvRuKOC8YUX5WLiC3+w0dUcXzTtfE/uABhfeHZZJr5wwaV9JQe40lKCbwlsVIdTtMy7AAAAAElFTkSuQmCC";
     const defaultTex = new Texture({ name: "skin" });
-    defaultTex.fromDataURL(defaultSkinB64);
+    defaultTex.fromDataURL(_DEFAULT_SKIN_B64);
     defaultTex.add();
 
     const defaultCapeTex = new Texture({ name: "cape" });
@@ -786,6 +1013,9 @@
       default: 0,
     }),
   );
+
+  const _DEFAULT_SKIN_B64 =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAGlQTFRFAAAAKBsLLB8OjFs/OCUSfU0xsHROIBUHRCwXwoZrzJF216OL////QiYdXjIqfz83Dw0UFRMcNzc3KigoPz8/HRooIR0w0tLhycfb8fHwvyUpKiY4q6XBKDQamyIavbrTUVFRdXV17TAsPTNTLwAAACN0Uk5TAP////////////////////////////////////////////+k8FOOAAADn0lEQVR4nO1X227cNhCdEUll0TgXJ3EL5CH//1V9KVCgaW527ToWKTLnDKm1rF1ntTZSIEC1K1G8Hc6NnCOVdqlowaN0rT7Kuku3L9qN2mUAECI/AMDloviFUqvD8RIUvBf1DwbAn0p0o6ngjgboBDYsDiW1d3I8AAzIijqrjg/wghTYERIQYVzvBaXz+wHPzicBgvQDWtBjraUcBED89BIlRCyeO/yCcKJjCZEOAlB3YQQFh4XHJKy7jK5AsVZIQIkxdmOxLOWr9JE6qWmhkleogPCD8TsdxZU8FolqMQmgIPEgAPyvoeNGAky0MsdCw0rEPRxU4cnQF9Pe3TyTi81o7zr0AybLGgDnmt9dxCTg1DhAGHiU6WA8WCC95DmgpfvQGs/OgTLKi+SBgPtzaz/F+w0EHJYA7HBZy6fW+OtHK17TFHTl3xMw3q8QW9f7AHQmwdEAVMHPJDjrLuCO53mVCqdwIwexYEmrIyi/jK9zjrZCQZjXvqlfZ6B6SiG9lkQcjE6sB4RHLpEK+Am6qcN+P1NLz6JNRNSwHbGMdZJ3iMruGpM9QzoG9GC3IeQi+1nMAdhQARi8WCHK09h5TSYNGlKwucLQrgAS398BGGwgh0jPYE7el3Hz1QKbYv/C4DaESQK5C8DjALbiioGrRunDVZUGM6O9cIhWFVncVYHtUMEMZYZP3ppRS4D3VtRjqhqxyBbg1IxXJlu32DCDSYUrsGFJi02ln+cABLbRDcO8Ffo4TWJ3D8fy0NMncoP8l/+a+t7kDD8msaPhRC41Na/2Vd/J/5fYrxi0fVxvAfDIz/Wc+egE9zl1hM4lNH2luvLKhqe6u53f7gd9RbH05B+KRRCTxdvUKWxt5o2YlZItj7Z/55vpMdf/AD8W4O3m98cBvEt/Pg5g3fUTATAnYBO0/ZHk9jzw27xzJ4ksr9/uOw+mibIF+kEq/LcAy2S7L6l+F2CZ7vel9YMAc8JxNMCS8hylwj6+oI0b7IuTvQCkC9J4wMQHZEF37gU4SzWpASFMfEFDzc7M8e/XATCNAwBZe+IDxjBmvOB+gGiJqCcA+UJofEBqbQ2AcHwgQM1PlQ+oURyRVSo0whBuSVWpdA15+qARqxu1MQ5Z8oI6idm8nQ8754HxKi6Z7COubNr+l8V5sK0vz4M3/O4iYSid8QWm9VtmIDvRuKOC8YUX5WLiC3+w0dUcXzTtfE/uABhfeHZZJr5wwaV9JQe40lKCbwlsVIdTtMy7AAAAAElFTkSuQmCC";
 
   const ARMOR_TEXTURE_B64 =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAJBQTFRFAAAAL8u5K7yqMdXDLca0MM69M9rJL827vJhin4RNtJBa////O/noOfPiOvjnc145PP/uO/vqNeXUOfXkNunYN+vZKbajaVQzLsi2OPHgN+3bOO/eNePRLcSyLMKwK76sMtjHMtfFMdPBMNC+LMGvKrimNufWPP3sKrqoNOHPfGI+TD0mM93LNN/NKLCeKbShtm5DLgAAADB0Uk5TAP//////////////////////////////////////////////////////////////ys+fXQAABEdJREFUeJztl31T4kgQh3smM0kIAaO8iBJA0PXWu/3+X+Tqaq3bVZDwFgTlVZJJMnMJqOuFzSL355VTBZWapJ/8uqe7J4PgeaDNYAJ+PVQU/gnAQjybvdyQ6Rqy8nYBAFMP1tZIIP4WQBH4dOnuBEQmCKgLmP9bgUSZgtBwB+AYwHlBRZevgJLHdOSkeu+MQSgf5NBd/go44j4GTqa7AKlnuw0HfiiQ074OjKc7uxTAxvfQYh2uVwD1QT5QOpX2DsDB2vcoDs8xqLkwMru4CKRVFz3TMkN9+K6OhEutyhPIceDaXAnTBYcPrldeAxoQOLrVcJYdLiRqgwweeQIKhpjrw2ArBpHzOPJfdkP9iMom9NOIa3e1FepXbKapLpFUO9CyCx27xve4gvWb0Yv3ApWQNGXHVPhtSBdaoBwCHRyAYqMCU2Ygjm/iMVCdyA3n2R0HNZrw2/XmniSx54Dyao8dQlQYhebPYrDOAgaIv1mF+EBw4gXHj3Y8LzSxXj60CcObVN4etNwzb7dm17UQZWJoy+EXCpLGAUB5DLlxlAj5URiDfYzr2NIfYnN7AT5b1XG8WvcCVFeUxDNzL0ADtXh8VbYAZ/oCd80ofRSzVZtPRSVaiXPervNmvVPGy0czZWfuardJAKJkB6CdfIdzm+mu5AaKX3E7GivfQ6FP4ElS4MR9AN+NA66c1iYzSjAgMoTeSgUx9ZZYhqzD6Opwjs+WtrSq2Lgowt9NHNDolq2oI9M8MzpEEyuDjc5mbh7bZldRvPy3Q6K182xSGyo5/wFOvsYBpzLDUTeqP6JF6UEFpi9YeQgsMOSwWc+NYRm4lFp2K+2cLDoybLmgVIBERXXVyfBHHXggsjbSyeyyA8Vu2IzjVfm6CvKpVQHr098YHRvX6Az8BAVWEuBLkz6ZtqIbNymtL2ujz/sqqC5VFS9gJLLKUKp3iwJZ6NyixWGQHgeE898tpIatSUpqtgid8kHDyvlTGdhlV733o1kSdr5Mf5N00lUwH/6krl8AjRHQ7BB5+bkupYfI2EilOY23kmxiCiqiVxPQM9sgxNVKJL4qCbDn8x+AD8AH4H8OOA8y3fi+vxdAUlFi130X4Kr/Y6v6T4Cz1E0Q/yJ9N+CCkZmuf8XVznEPqpPyn/sCGs68KO6heFuSunLOG+06L2wB0MnC9dPSDFJ0QopivOvMtAUgKZS/0zIaTGXlyYPZrlPbFiAXoBkuAJcfSbnn83xrXwDNLxjPMsaLR1P0IBl7A2QZH8EDmeCUZF6naO7bvoAvHXgyHUc3eqD1C94Ik8Lgj78kDqVOQZGXuuWvd2crKTaoSpoN3GZEXDR96XKJmhpyq4Po8ODnurIx9LXwKQnySZvuVjVeTJQeVnGWA8t0VXV83jtADtNHiQriE415MGlMHBLeMtqpcvN0hAUiKh+8F1ANnIyVpovTibeseE7Jdd15+LG1SqqVfwCBMN/1WD7yYQAAAABJRU5ErkJggg==";
@@ -954,6 +1184,22 @@ void main(void) {
         mat.uniforms.SHADE.value = shadeVal;
       }
     });
+    // Also update ghost mesh shading
+    _templateGhostRoot.traverse((child) => {
+      if (child.material && child.material.uniforms && child.material.uniforms.SHADE !== undefined) {
+        child.material.uniforms.SHADE.value = shadeVal;
+      }
+    });
+  };
+
+  // Patch Canvas.updateAll so ghost meshes are re-parented after Blockbench
+  // rebuilds bone Three.js objects (which orphans any previously attached children).
+  const _origUpdateAll = Canvas.updateAll;
+  Canvas.updateAll = function (...args) {
+    _origUpdateAll.apply(this, args);
+    if (Format && Format.id === "pck_skin") {
+      requestAnimationFrame(() => rebuildTemplateGhosts());
+    }
   };
 
   const CAPE_UV_STUB = {
@@ -983,6 +1229,7 @@ void main(void) {
       Cube.preview_controller.updateFaces = _origUpdateFaces;
       CubeFace.prototype.getTexture = _origGetTexture;
       Canvas.updateShading = _origUpdateShading;
+      Canvas.updateAll = _origUpdateAll;
       Canvas.updateAllFaces();
     },
   });
@@ -991,18 +1238,27 @@ void main(void) {
     if (Format.id !== "pck_skin") return;
     if (texture && _isCapeTexture(texture)) _invalidateCapeThreeTexCache();
     Canvas.updateAllFaces();
+    rebuildTemplateGhosts();
   };
   const _onTextureRemoved = ({ texture }) => {
     if (Format.id !== "pck_skin") return;
     if (texture && _isCapeTexture(texture)) _invalidateCapeThreeTexCache();
     Canvas.updateAllFaces();
+    rebuildTemplateGhosts();
+  };
+  const _onSelectProject = () => {
+    if (Format && Format.id === "pck_skin") {
+      requestAnimationFrame(() => rebuildTemplateGhosts());
+    }
   };
   Blockbench.on("update_texture", _onTextureUpdate);
   Blockbench.on("finish_edit", _onTextureRemoved);
+  Blockbench.on("select_project", _onSelectProject);
   track({
     delete() {
       Blockbench.removeListener("update_texture", _onTextureUpdate);
       Blockbench.removeListener("finish_edit", _onTextureRemoved);
+      Blockbench.removeListener("select_project", _onSelectProject);
     },
   });
 
@@ -1155,60 +1411,52 @@ void main(void) {
     LEG1: [-2, 12, 0],
   };
 
-  // Show/hide template cubes based on the current psm_anim_flags value.
-  // A template cube is hidden (visibility = false) when its ANIM flag bit is SET.
-  function syncTemplateCubeVisibility() {
-    if (Format.id !== "pck_skin") return;
+  // Maps ANIM flag masks to the animation name they should lock in Preview.
+  const ANIM_FLAG_LOCK_MAP = [
+    { mask: 0x2, name: "Zombie Arms" },
+    { mask: 0x8, name: "Bad Santa" },
+    { mask: 0x80, name: "Statue of Liberty" },
+    { mask: 0x20000, name: "Backwards Crouch" },
+    { mask: 0x80000000, name: "Dinnerbone" },
+  ];
+
+  function syncLockedAnims() {
+    if (!Modes.animate) return;
     const flags = Project.psm_anim_flags || 0;
-    Cube.all.forEach((c) => {
-      if (!c.pck_template || c.pck_anim_flag === undefined) return;
-      const shouldBeHidden = (flags & c.pck_anim_flag) !== 0;
-      if (c.visibility === shouldBeHidden) {
-        c.visibility = !shouldBeHidden;
-        Canvas.updateAll();
+
+    // Find the first active flag with a matching animation.
+    let lockTarget = null;
+    for (const entry of ANIM_FLAG_LOCK_MAP) {
+      if ((flags & entry.mask) !== 0) {
+        const anim = Animation.all.find((a) => a.name === entry.name);
+        if (anim) {
+          lockTarget = anim;
+          break;
+        }
       }
-    });
+    }
+
+    if (lockTarget) {
+      lockTarget.select();
+      Timeline.start();
+      Timeline.stay = true;
+    } else {
+      Timeline.stay = false;
+      Timeline.pause();
+    }
   }
 
-  // Re-add any template cubes that were hidden and whose flag is now cleared.
-  // Also called after PSM import to restore cubes hidden by default flags.
+  // Rebuilds ghost meshes respecting the current psm_anim_flags.
+  // Called whenever ANIM flag checkboxes change.
+  function syncTemplateCubeVisibility() {
+    if (Format.id !== "pck_skin") return;
+    rebuildTemplateGhosts();
+  }
+
+  // Rebuilds ghost meshes after PSM import / flag changes.
   function restoreTemplateCubes() {
     if (Format.id !== "pck_skin") return;
-    const flags = Project.psm_anim_flags || 0;
-
-    TEMPLATE_BONES.forEach((boneDef) => {
-      const bone = Group.all.find((g) => g.name === boneDef.name);
-      if (!bone) return;
-      boneDef.cubes.forEach((cubeDef) => {
-        const flagSet = cubeDef.animFlag !== undefined && (flags & cubeDef.animFlag) !== 0;
-        const exists = Cube.all.find((c) => c.pck_template && c.name === cubeDef.cubeName && c.parent === bone);
-        if (!exists) {
-          const from = cubeDef.origin.slice();
-          const to = [
-            cubeDef.origin[0] + cubeDef.size[0],
-            cubeDef.origin[1] + cubeDef.size[1],
-            cubeDef.origin[2] + cubeDef.size[2],
-          ];
-          const cube = new Cube({
-            name: cubeDef.cubeName,
-            from,
-            to,
-            inflate: cubeDef.inflate,
-            box_uv: true,
-            uv_offset: cubeDef.uv,
-            visibility: !flagSet,
-          })
-            .addTo(bone)
-            .init();
-          cube.pck_template = true;
-          cube.pck_anim_flag = cubeDef.animFlag;
-          TEMPLATE_UUID_REGISTRY.add(cube.uuid);
-        } else {
-          exists.visibility = !flagSet;
-        }
-      });
-    });
-    Canvas.updateAll();
+    rebuildTemplateGhosts();
   }
 
   function rebuildArmorCubes() {
@@ -1408,6 +1656,7 @@ void main(void) {
     Animator.loadFile({ json: PCK_ANIMATIONS });
     if (Animation.all[0]) Animation.all[0].select();
     rebuildArmorCubes();
+    syncLockedAnims();
   }
 
   function onUnselectMode({ mode }) {
@@ -1494,9 +1743,11 @@ void main(void) {
             this.anim_flags ^= mask;
             Project.psm_anim_flags = this.anim_flags;
             syncTemplateCubeVisibility();
+            syncLockedAnims();
           },
           syncFromProject() {
             this.anim_flags = Project.psm_anim_flags || 0;
+            syncLockedAnims();
           },
         },
         mounted() {
@@ -1746,7 +1997,6 @@ void main(void) {
     for (const cube of Cube.all) {
       if (cube.uuid.startsWith("eeeeeeee") || cube.uuid.startsWith("cccccccc")) continue;
       if (armorCubes.has(cube)) continue;
-      if (cube.pck_template) continue; // base template cubes are never exported
       const parent = cube.parent;
       if (!(parent instanceof Group)) continue;
       // Resolve which root bone this cube belongs to.
