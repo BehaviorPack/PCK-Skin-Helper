@@ -43,10 +43,10 @@
         { cubeName: "HEAD", origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, animFlag: 0x400 },
         {
           cubeName: "HEADWEAR",
-          origin: [-4.5, 23.5, -4.5],
+          origin: [-4.25, 23.75, -4.25],
           size: [8, 8, 8],
           uv: [32, 0],
-          inflate: 0.5,
+          inflate: 0.25,
           animFlag: 0x10000,
         },
       ],
@@ -309,7 +309,7 @@
   //   • ARM1 / LEG1 mirror their counterpart's UV instead of using the
   //     64×64-only bottom-half UV coordinates.
   //   • The UV normaliser uses height=32 so V coords map correctly.
-  const CLASSIC_32_OVERLAY_CUBES = new Set(["JACKET", "SLEEVE0", "SLEEVE1", "PANT0", "PANT1"]);
+  const CLASSIC_32_OVERLAY_CUBES = new Set(["HEADWEAR", "JACKET", "SLEEVE0", "SLEEVE1", "PANT0", "PANT1"]);
   const CLASSIC_32_UV_OVERRIDES = {
     ARM1: { uv: [40, 16], mirrorX: true }, // same UV strip as ARM0, mirrored horizontally
     LEG1: { uv: [0, 16], mirrorX: true }, // same UV strip as LEG0, mirrored horizontally
@@ -437,9 +437,6 @@
       group.init();
     });
 
-    // Place armor locators now that all bones exist.
-    buildArmorLocators();
-
     // Ghost meshes are built once the skeleton Groups have their .mesh assigned,
     // which happens after Canvas.updateAll() in the caller.
     requestAnimationFrame(() => rebuildTemplateGhosts());
@@ -492,7 +489,7 @@
       pivot: [0, 24, 0],
       cubes: [
         { origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0 },
-        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.5 },
+        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25 },
       ],
     },
     {
@@ -543,7 +540,7 @@
       pivot: [0, 24, 0],
       cubes: [
         { origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0 },
-        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.5 },
+        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25 },
       ],
     },
     {
@@ -594,7 +591,7 @@
       pivot: [0, 24, 0],
       cubes: [
         { origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0 },
-        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.5 },
+        { origin: [-4, 24, -4], size: [8, 8, 8], uv: [32, 0], inflate: 0.25 },
       ],
     },
     {
@@ -798,40 +795,6 @@
       rebuildTemplateGhosts();
       if (Modes.animate) rebuildArmorCubes();
     }
-
-    // Zero out any rotations applied to armor locators — they are position-only.
-    let locatorRotated = false;
-    Locator.all.forEach((loc) => {
-      if (!isArmorLocator(loc)) return;
-      if (loc.rotation && (loc.rotation[0] !== 0 || loc.rotation[1] !== 0 || loc.rotation[2] !== 0)) {
-        loc.rotation = [0, 0, 0];
-        locatorRotated = true;
-      }
-    });
-    if (locatorRotated) {
-      Canvas.updateAll();
-      Blockbench.showQuickMessage("Armor locators are position-only — rotation has been cleared.", 2200);
-    }
-
-    // Rebuild armor whenever an armor locator has been moved.
-    const beforeLocators = (last.before && last.before.locators) || {};
-    let locatorMoved = false;
-    Locator.all.forEach((loc) => {
-      if (!isArmorLocator(loc)) return;
-      const snap = beforeLocators[loc.uuid];
-      if (!snap) return;
-      if (
-        snap.position &&
-        (snap.position[0] !== loc.position[0] ||
-          snap.position[1] !== loc.position[1] ||
-          snap.position[2] !== loc.position[2])
-      ) {
-        locatorMoved = true;
-      }
-    });
-    if (locatorMoved && Modes.animate) {
-      rebuildArmorCubes();
-    }
   }
 
   function onCubeAdded({ object }) {
@@ -842,7 +805,6 @@
   }
 
   function onCloseProject() {
-    clearArmorLocators();
     // Clear ghost meshes — they may be parented to bone meshes, not _templateGhostRoot
     const oldGhosts = [];
     _templateGhostRoot.traverse((obj) => {
@@ -1265,23 +1227,22 @@
   track(
     new ModelFormat({
       id: "pck_skin",
-      name: "PCK Skin Model (.PSM)",
-      description: "Import or create a Skin then export it to PCK Studio",
-      target: "PCK Studio",
+      name: "PCK Skin",
+      description: "Create a Skin then export it to PCK STUDIO",
+      target: "Minecraft: Legacy Console",
       icon: "icon-player",
       show_on_start_screen: true,
+      confidential: true,
       can_convert_to: false,
-      rotate_cubes: false,
+      rotate_cubes: true,
       box_uv: true,
       per_texture_uv_size: true,
       optional_box_uv: false,
       single_texture: false,
       bone_rig: true,
       centered_grid: true,
-      animated_textures: false,
+      animated_textures: true,
       animation_mode: true,
-      locators: true,
-      model_identifier: false,
       codec: Codecs.project,
       onActivation() {
         Modes.options.animate.name = "Preview";
@@ -1327,6 +1288,7 @@
       onConfirm({ name }) {
         const sanitised = (name || "skin").trim() || "skin";
         Project.name = sanitised;
+        Project.model_identifier = sanitised;
         Canvas.updateAll();
       },
     }).show();
@@ -1705,7 +1667,10 @@ void main(void) {
       "Bad Santa": {
         loop: true,
         bones: {
-          WAIST: { position: [0, -10, 0] },
+          BODY: { position: [0, -10, 0] },
+          HEAD: { position: [0, -10, 0] },
+          ARM0: { position: [0, -10, 0] },
+          ARM1: { position: [0, -10, 0] },
           LEG0: { rotation: ["-88.5 - this", "18 - this", "-this"], position: [0, -10, 0] },
           LEG1: { rotation: ["-88.5 - this", "-18 - this", "0"], position: [0, -10, 0] },
         },
@@ -1738,7 +1703,9 @@ void main(void) {
       Dinnerbone: {
         loop: true,
         bones: {
-          ROOT: { position: [0, 32, 0], rotation: [0, 0, 180] },
+          WAIST: { position: [0, 8, 0], rotation: [0, 0, 180] },
+          LEG0: { position: [0, 8, 0], rotation: [0, 0, 180] },
+          LEG1: { position: [0, 8, 0], rotation: [0, 0, 180] },
         },
       },
     },
@@ -1761,65 +1728,6 @@ void main(void) {
     LEG0: [2, 12, 0],
     LEG1: [-2, 12, 0],
   };
-
-  // ── Armor Locators ─────────────────────────────────────────────────────────
-  // One locator per armor attachment point that has no corresponding bone/folder
-  // of its own. WAIST is excluded — it is already a real skeleton Group whose
-  // pivot encodes the PSM offset directly (waistGroup.origin[1] = 12 + value).
-  //
-  // parentBone  = the Blockbench Group the locator lives under
-  // defaultPos  = world-space position of the locator at rest
-  const ARMOR_LOCATORS = [
-    { name: "HELMET", parentBone: "HEAD", defaultPos: [0, 24, 0] },
-    { name: "CHEST", parentBone: "BODY", defaultPos: [0, 24, 0] },
-    { name: "SHOULDER0", parentBone: "ARM0", defaultPos: [6, 22, 0] },
-    { name: "SHOULDER1", parentBone: "ARM1", defaultPos: [-6, 22, 0] },
-    { name: "PANTS0", parentBone: "LEG0", defaultPos: [2, 12, 0] },
-    { name: "PANTS1", parentBone: "LEG1", defaultPos: [-2, 12, 0] },
-    { name: "BOOT0", parentBone: "LEG0", defaultPos: [2, 12, 0] },
-    { name: "BOOT1", parentBone: "LEG1", defaultPos: [-2, 12, 0] },
-  ];
-
-  // UUID prefix that tags every armor locator for easy identification.
-  const ARMOR_LOCATOR_UUID_PREFIX = "llllllll";
-
-  function isArmorLocator(obj) {
-    return obj instanceof Locator && typeof obj.uuid === "string" && obj.uuid.startsWith(ARMOR_LOCATOR_UUID_PREFIX);
-  }
-
-  function armorLocatorUuid() {
-    return ARMOR_LOCATOR_UUID_PREFIX + guid().substr(8);
-  }
-
-  // Returns the world-space position delta of the named armor locator vs its
-  // default position, or [0,0,0] if the locator doesn't exist yet.
-  function getArmorLocatorOffset(locatorName) {
-    const def = ARMOR_LOCATORS.find((l) => l.name === locatorName);
-    if (!def) return [0, 0, 0];
-    const loc = Locator.all.find((l) => l.name === locatorName && isArmorLocator(l));
-    if (!loc) return [0, 0, 0];
-    return [
-      loc.position[0] - def.defaultPos[0],
-      loc.position[1] - def.defaultPos[1],
-      loc.position[2] - def.defaultPos[2],
-    ];
-  }
-
-  // Create all armor locators and parent them to their respective bones.
-  // Called once from buildTemplateSkeleton().
-  function buildArmorLocators() {
-    ARMOR_LOCATORS.forEach((def) => {
-      const bone = Group.all.find((g) => g.name === def.parentBone);
-      if (!bone) return;
-      const loc = new Locator({ name: def.name, position: def.defaultPos.slice() }, armorLocatorUuid());
-      loc.addTo(bone).init();
-    });
-  }
-
-  // Remove all armor locators (used on close/unload).
-  function clearArmorLocators() {
-    Locator.all.filter(isArmorLocator).forEach((l) => l.remove());
-  }
 
   // Maps ANIM flag masks to the animation name they should lock in Preview.
   const ANIM_FLAG_LOCK_MAP = [
@@ -1874,14 +1782,43 @@ void main(void) {
     if (!Modes.animate) return;
     if (!Project.pck_armor_cubes) Project.pck_armor_cubes = [];
 
-    // Place one armor cube, shifted by the current locator offset so the piece
-    // tracks wherever the user has moved the corresponding armor locator.
-    function addCube(def, boneName, uuidFn = armorUuid, locatorName = null) {
-      const bone = Group.all.find((g) => g.name === boneName);
+    // Prefer the named offset folder (e.g. HELMET, CHEST) when it exists in the outliner,
+    // falling back to the raw bone. Offset folders already have the correct pivot baked in,
+    // so no delta-shift is needed — attach the cube at its canonical position directly.
+    // For raw bones we still apply the pivot-delta to follow any custom offset.
+    function findOffsetFolder(folderName) {
+      return Group.all.find((g) => g.name === folderName) || null;
+    }
+
+    function addCube(def, boneName, uuidFn = armorUuid, overrideFolder = null) {
+      const target = overrideFolder ? findOffsetFolder(overrideFolder) : null;
+      const bone = target || Group.all.find((g) => g.name === boneName);
       if (!bone) return;
 
-      // Read the delta from the armor locator (defaults to [0,0,0]).
-      const [dx, dy, dz] = locatorName ? getArmorLocatorOffset(locatorName) : [0, 0, 0];
+      // Compute world-space shift so the armor cube follows any PSM offset.
+      //
+      // Case A — offset folder found (e.g. HELMET):
+      //   The folder's pivot encodes the PSM offset: pivot.Y = parentPivot.Y - offsetValue.
+      //   The armor cube coords are defined relative to the default parent pivot, so we
+      //   shift by (folder.origin - defaultParentPivot) to move them to the correct position.
+      //
+      // Case B — falling back to the raw bone:
+      //   Shift by (bone.origin - defaultPivot) to follow any custom bone pivot.
+      let dx = 0,
+        dy = 0,
+        dz = 0;
+      if (target) {
+        const defaultParentPivot = BONE_DEFAULT_PIVOTS[boneName] || [0, 0, 0];
+        dx = target.origin[0] - defaultParentPivot[0];
+        dy = target.origin[1] - defaultParentPivot[1];
+        dz = target.origin[2] - defaultParentPivot[2];
+      } else {
+        const defaultPivot = BONE_DEFAULT_PIVOTS[boneName] || [0, 0, 0];
+        const livePivot = bone.origin;
+        dx = livePivot[0] - defaultPivot[0];
+        dy = livePivot[1] - defaultPivot[1];
+        dz = livePivot[2] - defaultPivot[2];
+      }
 
       const shifted = Object.assign({}, def);
       if (shifted.from) shifted.from = [shifted.from[0] + dx, shifted.from[1] + dy, shifted.from[2] + dz];
@@ -1939,14 +1876,10 @@ void main(void) {
       addCube(
         { name: "armorLegsBody", from: [-4, 12, -2], to: [4, 24, 2], inflate: 0.51, uv_offset: [16, 48], color: 1 },
         "WAIST",
-        armorUuid,
-        null,
       );
       addCube(
         { name: "armorRightLeg", from: [-4, 0, -2], to: [0, 12, 2], inflate: 0.5, uv_offset: [0, 48], color: 1 },
         "LEG1",
-        armorUuid,
-        "PANTS1",
       );
       addCube(
         {
@@ -1959,8 +1892,6 @@ void main(void) {
           mirror_uv: true,
         },
         "LEG0",
-        armorUuid,
-        "PANTS0",
       );
     }
     if (armorPieces.boots) {
@@ -2433,18 +2364,23 @@ void main(void) {
         inflate: cube.inflate || 0,
       });
     }
-    // Derive offsets from live bone pivots (root bones) and armor locator positions.
-    //
-    // Root bones (HEAD, BODY, ARM0, ARM1, LEG0, LEG1):
-    //   value = BONE_BB_PIVOT[name].Y - bone.origin.Y
-    //   (bone pivot drifts down when offset is positive)
-    //
-    // Armor locators (HELMET, CHEST, SHOULDER0/1, PANTS0/1, BOOT0/1):
-    //   value = -(locator.position.Y - locator.defaultPos.Y)  →  value = -dy
-    //   Moving the locator down by N → dy = -N → value = +N (armor drops by N)
-    // WAIST: handled separately via the WAIST group pivot (see below).
+    // Derive offsets from live bone/folder pivots.
+    // Root bones: offset = BONE_BB_PIVOT[name].Y - bone.origin.Y
+    // Offset folders: offset = parentBone.origin.Y - folder.origin.Y
     const offsets = [];
     const ROOT_BONE_NAMES = ["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"];
+    const ARMOR_FOLDER_PARENT_MAP = {
+      HELMET: "HEAD",
+      TOOL0: "ARM0",
+      TOOL1: "ARM1",
+      SHOULDER0: "ARM0",
+      SHOULDER1: "ARM1",
+      CHEST: "BODY",
+      PANTS0: "LEG0",
+      PANTS1: "LEG1",
+      BOOT0: "LEG0",
+      BOOT1: "LEG1",
+    };
 
     ROOT_BONE_NAMES.forEach((boneName) => {
       const bone = Group.all.find((g) => g.name === boneName);
@@ -2454,36 +2390,22 @@ void main(void) {
       if (value !== 0) offsets.push({ typeName: boneName, value });
     });
 
-    // Armor slot offsets come from the armor locators.
-    // Only emit an offset entry when the locator has actually been moved.
-    // WAIST is excluded — its offset is derived from the WAIST bone pivot below.
-    const ARMOR_SLOT_LOCATOR_NAMES = [
-      "HELMET",
-      "CHEST",
-      "SHOULDER0",
-      "SHOULDER1",
-      "PANTS0",
-      "PANTS1",
-      "BOOT0",
-      "BOOT1",
-    ];
-    ARMOR_SLOT_LOCATOR_NAMES.forEach((locName) => {
-      const [, dy] = getArmorLocatorOffset(locName);
-      if (dy === 0) return; // unchanged — don't write a zero-value offset
-      // Positive dy (locator moved up) → armor moves up → PSM value is negative.
-      // Negative dy (locator moved down) → armor drops → PSM value is positive.
-      const value = -dy;
-      offsets.push({ typeName: locName, value });
-    });
-
-    // WAIST offset comes from the WAIST group pivot, same as before.
-    // Import sets waistGroup.origin[1] = 12 + waistOffsetVal, so:
-    //   value = origin[1] - 12
     const waistBone = Group.all.find((g) => g.name === "WAIST");
     if (waistBone) {
+      // Import sets waistGroup.origin[1] = 12 + waistOffsetVal, so to recover
+      // the original offset we reverse: value = origin[1] - 12.
       const value = waistBone.origin[1] - 12;
       if (value !== 0) offsets.push({ typeName: "WAIST", value });
     }
+
+    Object.entries(ARMOR_FOLDER_PARENT_MAP).forEach(([folderName, parentName]) => {
+      const folder = Group.all.find((g) => g.name === folderName);
+      if (!folder) return;
+      const parentBone = Group.all.find((g) => g.name === parentName);
+      if (!parentBone) return;
+      const value = parentBone.origin[1] - folder.origin[1];
+      if (value !== 0) offsets.push({ typeName: folderName, value });
+    });
 
     const animFlags = Project.psm_anim_flags != null ? Project.psm_anim_flags | 0 : 0;
     return { version: PSM_VERSION, animFlags, parts, offsets };
@@ -2502,6 +2424,25 @@ void main(void) {
     Undo.initEdit({ elements: [], outliner: true });
     Project.psm_anim_flags = psm.animFlags;
     Project.psm_offsets = psm.offsets.map((o) => ({ typeName: o.typeName, value: o.value }));
+
+    // Armor/equipment slot -> parent root bone, for creating nested offset folders.
+    // Pivot for these uses base pivot (0,0,0) from GameConstants (unknown types default to zero).
+    // BB pivot = TransformSpace((0,0,0),0,(1,1,0)) + (0,24,0) - offsetValue * Y = (0, 24-offsetValue, 0)
+    const OFFSET_PARENT_BONE = {
+      HELMET: "HEAD",
+      TOOL0: "ARM0",
+      TOOL1: "ARM1",
+      SHOULDER0: "ARM0",
+      SHOULDER1: "ARM1",
+      CHEST: "BODY",
+      // WAIST is a root-bone offset (shifts the WAIST group pivot) — not an
+      // equipment folder. It is handled above and must NOT appear here or the
+      // import will create a spurious "WAIST" child folder inside BODY.
+      PANTS0: "LEG0",
+      PANTS1: "LEG1",
+      BOOT0: "LEG0",
+      BOOT1: "LEG1",
+    };
 
     // Build offset lookup: all offset types -> Y value
     const offsetMap = {};
@@ -2558,54 +2499,24 @@ void main(void) {
       }
     });
 
-    // Apply armor slot offsets to the corresponding armor locators.
-    // value = -dy  →  dy = -value  →  locator.position.Y = defaultPos.Y - value
-    // Only touch locators that have an offset entry in the PSM.
-    // WAIST is excluded — it is already handled via waistGroup.origin[1] above.
-    const ARMOR_SLOT_NAMES = new Set([
-      "HELMET",
-      "CHEST",
-      "SHOULDER0",
-      "SHOULDER1",
-      "PANTS0",
-      "PANTS1",
-      "BOOT0",
-      "BOOT1",
-    ]);
-    // Track which locators were explicitly set via their own PSM offset entry,
-    // so we know which ones to propagate from their parent bone instead.
-    const explicitLocatorNames = new Set();
+    // Create armor/equipment offset folders as empty groups nested under their parent bone.
+    // Pivot Y = parentBonePivotY - offsetValue (relative to the parent's actual live pivot).
+    // e.g. HEAD pivot Y=11, HELMET offset=1 -> HELMET pivot Y = 11 - 1 = 10
     psm.offsets.forEach((o) => {
-      if (!ARMOR_SLOT_NAMES.has(o.typeName)) return;
-      const locDef = ARMOR_LOCATORS.find((l) => l.name === o.typeName);
-      if (!locDef) return;
-      const loc = Locator.all.find((l) => l.name === o.typeName && isArmorLocator(l));
-      if (!loc) return;
-      // The offset value is relative to the parent bone's current pivot, not the
-      // absolute default.  Account for the parent bone's own Y offset first.
-      const parentBoneOffsetY = offsetMap[locDef.parentBone] || 0;
-      loc.position[0] = locDef.defaultPos[0];
-      loc.position[1] = locDef.defaultPos[1] - parentBoneOffsetY - o.value;
-      loc.position[2] = locDef.defaultPos[2];
-      loc.updateElement && loc.updateElement();
-      explicitLocatorNames.add(o.typeName);
-    });
-
-    // Propagate root bone Y offsets into child armor locators that had no
-    // explicit PSM offset of their own.  When a bone pivot shifts (e.g. HEAD Y 2
-    // moves the pivot from 24 to 22), every locator parented to that bone must
-    // shift by the same amount so armor preview stays correctly positioned.
-    // Formula: locator.position.Y = defaultPos.Y - boneOffsetValue
-    ARMOR_LOCATORS.forEach((locDef) => {
-      if (explicitLocatorNames.has(locDef.name)) return; // already set above
-      const boneOffset = offsetMap[locDef.parentBone] || 0;
-      if (boneOffset === 0) return; // bone not offset — locator stays at default
-      const loc = Locator.all.find((l) => l.name === locDef.name && isArmorLocator(l));
-      if (!loc) return;
-      loc.position[0] = locDef.defaultPos[0];
-      loc.position[1] = locDef.defaultPos[1] - boneOffset;
-      loc.position[2] = locDef.defaultPos[2];
-      loc.updateElement && loc.updateElement();
+      const parentName = OFFSET_PARENT_BONE[o.typeName];
+      if (!parentName) return; // skip root bones — already handled above
+      const parentBone = boneMap[parentName];
+      if (!parentBone) return;
+      // Don't duplicate if already present
+      const exists = Group.all.some((g) => g.name === o.typeName && g.parent === parentBone);
+      if (exists) return;
+      const parentPivotY = parentBone.origin[1];
+      new Group({
+        name: o.typeName,
+        origin: [0, parentPivotY - o.value, 0],
+      })
+        .addTo(parentBone)
+        .init();
     });
 
     // Remove previously-imported PSM cubes so re-importing is clean.
@@ -2653,475 +2564,6 @@ void main(void) {
 
   // ──────────────────────────────────────────────────────────────────────────
 
-  // ── Bedrock Geometry Export ────────────────────────────────────────────────
-  //
-  // Exports the current model as a Bedrock-compatible geometry JSON using one
-  // of three templates (Slim / 64×64 / 64×32) depending on the active ANIM flags.
-  //
-  // ANIM flag mapping:
-  //   0x80000  = SLIM_MODEL       → use Slim template
-  //   0x40000  = RESOLUTION_64x64 → use 64x64 template
-  //   neither                     → use 64x32 template
-  //
-  // Overlay bones removed when their part's Disabled/OverlayOff flag is set:
-  //   HEAD_DISABLED        (0x400)   → remove "hat"
-  //   HEAD_OVERLAY_DISABLED(0x10000) → remove "hat"
-  //   BODY_DISABLED        (0x2000)  → remove "jacket"
-  //   BODY_OVERLAY_DISABLED(0x1000000)→ remove "jacket"
-  //   RIGHT_ARM_DISABLED   (0x800)   → remove "rightSleeve"
-  //   RIGHT_ARM_OVERLAY_DISABLED(0x200000) → remove "rightSleeve"
-  //   LEFT_ARM_DISABLED    (0x1000)  → remove "leftSleeve"
-  //   LEFT_ARM_OVERLAY_DISABLED(0x100000)  → remove "leftSleeve"
-  //   RIGHT_LEG_DISABLED   (0x4000)  → remove "rightPants"
-  //   RIGHT_LEG_OVERLAY_DISABLED(0x800000) → remove "rightPants"
-  //   LEFT_LEG_DISABLED    (0x8000)  → remove "leftPants"
-  //   LEFT_LEG_OVERLAY_DISABLED(0x400000)  → remove "leftPants"
-
-  const BEDROCK_TEMPLATE_SLIM = {"body":{"parent":null,"pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"uv":[16,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"head":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[0,0],"inflate":0,"mirror":false}],"META_BoneType":"base"},"hat":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[32,0],"inflate":0.5,"mirror":false}],"META_BoneType":"clothing"},"helmet":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"helmetArmorOffset":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightArm":{"parent":"body","pivot":[-5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[-7,12,-2],"size":[3,12,4],"uv":[32,48],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightSleeve":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[-7,12,-2],"size":[3,12,4],"uv":[48,48],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"rightArmArmor":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightArmArmorOffset":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightItem":{"parent":"rightArm","pivot":[-6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"leftArm":{"parent":"body","pivot":[5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[4,12,-2],"size":[3,12,4],"uv":[40,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"leftSleeve":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[4,12,-2],"size":[3,12,4],"uv":[40,32],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"leftArmArmor":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftArmArmorOffset":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftItem":{"parent":"leftArm","pivot":[6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"jacket":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"inflate":0.25,"uv":[16,32],"mirror":false}],"META_BoneType":"clothing"},"bodyArmor":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"bodyArmorOffset":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"waist":{"parent":"body","pivot":[0,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightLeg":{"parent":null,"pivot":[-1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightPants":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,32],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"rightLegging":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightLeggingsArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightBoot":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightBootArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftLeg":{"parent":null,"pivot":[1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[16,48],"inflate":0,"mirror":false}],"META_BoneType":"base"},"leftPants":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[0,48],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"leftLegging":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftLeggingsArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftBoot":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftBootArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"}};
-  const BEDROCK_TEMPLATE_64x64 = {"body":{"parent":null,"pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"uv":[16,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"head":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[0,0],"inflate":0,"mirror":false}],"META_BoneType":"base"},"hat":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[32,0],"inflate":0.5,"mirror":false}],"META_BoneType":"clothing"},"helmet":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"helmetArmorOffset":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightArm":{"parent":"body","pivot":[-5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[-8,12,-2],"size":[4,12,4],"uv":[40,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightSleeve":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[-8,12,-2],"size":[4,12,4],"uv":[40,32],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"rightArmArmor":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightArmArmorOffset":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightItem":{"parent":"rightArm","pivot":[-6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"leftArm":{"parent":"body","pivot":[5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[4,12,-2],"size":[4,12,4],"uv":[32,48],"inflate":0,"mirror":false}],"META_BoneType":"base"},"leftSleeve":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[4,12,-2],"size":[4,12,4],"uv":[48,48],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"leftArmArmor":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftArmArmorOffset":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftItem":{"parent":"leftArm","pivot":[6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"jacket":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"inflate":0.25,"uv":[16,32],"mirror":false}],"META_BoneType":"clothing"},"bodyArmor":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"bodyArmorOffset":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"waist":{"parent":"body","pivot":[0,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightLeg":{"parent":null,"pivot":[-1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightPants":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,32],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"rightLegging":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightLeggingsArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightBoot":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightBootArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftLeg":{"parent":null,"pivot":[1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[16,48],"inflate":0,"mirror":false}],"META_BoneType":"base"},"leftPants":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[0,48],"inflate":0.25,"mirror":false}],"META_BoneType":"clothing"},"leftLegging":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftLeggingsArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftBoot":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftBootArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"}};
-  const BEDROCK_TEMPLATE_64x32 = {"body":{"parent":null,"pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"uv":[16,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"head":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[0,0],"inflate":0,"mirror":false}],"META_BoneType":"base"},"hat":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[32,0],"inflate":0.5,"mirror":false}],"META_BoneType":"clothing"},"helmet":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"helmetArmorOffset":{"parent":"head","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightArm":{"parent":"body","pivot":[-5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[-8,12,-2],"size":[4,12,4],"uv":[40,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightSleeve":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"clothing"},"rightArmArmor":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightArmArmorOffset":{"parent":"rightArm","pivot":[-5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightItem":{"parent":"rightArm","pivot":[-6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"leftArm":{"parent":"body","pivot":[5,22,0],"rotation":[0,0,0],"cubes":[{"origin":[4,12,-2],"size":[4,12,4],"uv":[40,16],"inflate":0,"mirror":true}],"META_BoneType":"base"},"leftSleeve":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"clothing"},"leftArmArmor":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftArmArmorOffset":{"parent":"leftArm","pivot":[5,22,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftItem":{"parent":"leftArm","pivot":[6,15,1],"rotation":[0,0,0],"META_BoneType":"item"},"jacket":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"clothing"},"bodyArmor":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor"},"bodyArmorOffset":{"parent":"body","pivot":[0,24,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"waist":{"parent":"body","pivot":[0,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightLeg":{"parent":null,"pivot":[-1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,16],"inflate":0,"mirror":false}],"META_BoneType":"base"},"rightPants":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"clothing"},"rightLegging":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightLeggingsArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"rightBoot":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"rightBootArmorOffset":{"parent":"rightLeg","pivot":[-1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftLeg":{"parent":null,"pivot":[1.9,12,0],"rotation":[0,0,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[0,16],"inflate":0,"mirror":true}],"META_BoneType":"base"},"leftPants":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"clothing"},"leftLegging":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftLeggingsArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"},"leftBoot":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor"},"leftBootArmorOffset":{"parent":"leftLeg","pivot":[1.9,12,0],"rotation":[0,0,0],"META_BoneType":"armor_offset"}};
-
-  // Map from overlay bone name → the pair of ANIM flag bits (either set = remove the bone).
-  const BEDROCK_OVERLAY_REMOVE_FLAGS = {
-    hat:          0x400    | 0x10000,    // HEAD_DISABLED | HEAD_OVERLAY_DISABLED
-    jacket:       0x2000   | 0x1000000,  // BODY_DISABLED | BODY_OVERLAY_DISABLED
-    rightSleeve:  0x800    | 0x200000,   // RIGHT_ARM_DISABLED | RIGHT_ARM_OVERLAY_DISABLED
-    leftSleeve:   0x1000   | 0x100000,   // LEFT_ARM_DISABLED  | LEFT_ARM_OVERLAY_DISABLED
-    rightPants:   0x4000   | 0x800000,   // RIGHT_LEG_DISABLED | RIGHT_LEG_OVERLAY_DISABLED
-    leftPants:    0x8000   | 0x400000,   // LEFT_LEG_DISABLED  | LEFT_LEG_OVERLAY_DISABLED
-  };
-
-  // Force Armor flags (exact masks from ANIM panel):
-  //   Force Head Armor       = 0x2000000
-  //   Force Right Arm Armor  = 0x4000000
-  //   Force Left Arm Armor   = 0x8000000
-  //   Force Body Armor       = 0x10000000
-  //   Force Right Leg Armor  = 0x20000000
-  //   Force Left Leg Armor   = 0x40000000
-  const BEDROCK_FORCE_ARMOR_EXACT =
-    0x2000000 | 0x4000000 | 0x8000000 | 0x10000000 | 0x20000000 | 0x40000000;
-
-  function exportBedrockGeometry() {
-    const flags = Project.psm_anim_flags || 0;
-    const isSlim  = (flags & 0x80000) !== 0;
-    const is64x64 = (flags & 0x40000) !== 0;
-
-    // Pick the right template (deep clone to avoid mutating the originals)
-    const templateBones = isSlim
-      ? BEDROCK_TEMPLATE_SLIM
-      : is64x64
-        ? BEDROCK_TEMPLATE_64x64
-        : BEDROCK_TEMPLATE_64x32;
-
-    const boneMap = JSON.parse(JSON.stringify(templateBones));
-
-    // Remove overlay bones whose ANIM flags indicate they're disabled/off
-    for (const [boneName, removeMask] of Object.entries(BEDROCK_OVERLAY_REMOVE_FLAGS)) {
-      if ((flags & removeMask) !== 0) {
-        delete boneMap[boneName];
-      }
-    }
-
-    // ── Collect armor-masked BOX cubes from the model ────────────────────────
-    //
-    // Any cube with pck_armor_mask !== 0 is a skin cube that should be hidden
-    // when a specific armor piece is worn. In the Bedrock geometry these cubes
-    // live inside the corresponding armor sub-bone rather than the base bone.
-    //
-    // Armor mask bits (from SkinBOX.cs / pck_importer):
-    //   1 = HELMET      → target bone: "helmet"
-    //   2 = CHESTPLATE  → target bone depends on parent:
-    //                      HEAD  → "helmet"  (treated as helmet for body-covering head pieces)
-    //                      BODY  → "bodyArmor"
-    //                      ARM0  → "rightArmArmor"
-    //                      ARM1  → "leftArmArmor"
-    //   4 = LEGGINGS    → target bone depends on parent:
-    //                      LEG0  → "rightLegging"
-    //                      LEG1  → "leftLegging"
-    //   8 = BOOTS       → target bone depends on parent:
-    //                      LEG0  → "rightBoot"
-    //                      LEG1  → "leftBoot"
-    //
-    // A cube may have multiple bits set — it is cloned into every matching
-    // armor bone. Cubes with no mask bits are exported normally in their base bone.
-    //
-    // Coordinate transform: Blockbench "from/to" → Bedrock "origin/size"
-    //   origin = from
-    //   size   = to - from
-
-    // Maps from PCK bone names to Bedrock base bone names (plain cubes).
-    const PCK_BONE_TO_BEDROCK_BASE = {
-      HEAD: "head",
-      BODY: "body",
-      ARM0: "rightArm",
-      ARM1: "leftArm",
-      LEG0: "rightLeg",
-      LEG1: "leftLeg",
-    };
-
-    // Per-parent-bone lookup for each armor bit
-    const ARMOR_BIT_BONE = {
-      1: { HEAD: "helmet", BODY: "helmet", ARM0: "helmet", ARM1: "helmet", LEG0: "helmet", LEG1: "helmet" },
-      2: { HEAD: "helmet", BODY: "bodyArmor", ARM0: "rightArmArmor", ARM1: "leftArmArmor", LEG0: "bodyArmor", LEG1: "bodyArmor" },
-      4: { LEG0: "rightLegging", LEG1: "leftLegging", HEAD: "rightLegging", BODY: "rightLegging", ARM0: "rightLegging", ARM1: "leftLegging" },
-      8: { LEG0: "rightBoot", LEG1: "leftBoot", HEAD: "rightBoot", BODY: "rightBoot", ARM0: "rightBoot", ARM1: "leftBoot" },
-    };
-
-    // Map: bone name → extra cubes to inject (beyond the template defaults)
-    const armorBoneCubes = {}; // armor-masked cubes → armor sub-bones
-    const baseBoneCubes  = {}; // plain cubes        → base bones
-
-    const armorCubeSet = new Set(Project.pck_armor_cubes || []);
-
-    // Arm/leg Bedrock bone names whose cube X origins must be mirrored
-    // (PCK stores them on the opposite X side to Bedrock convention).
-    const MIRROR_LIMB_BONES = new Set(["rightArm","leftArm","rightLeg","leftLeg"]);
-    // Armor sub-bones that are children of an arm/leg limb bone — their cubes
-    // also need X mirroring because they inherit the same PCK-side convention.
-    const MIRROR_LIMB_ARMOR_BONES = new Set([
-      "rightArmArmor","leftArmArmor",
-      "rightLegging","leftLegging",
-      "rightBoot","leftBoot",
-    ]);
-
-    for (const cube of Cube.all) {
-      // Skip internal/non-exported cubes
-      if (cube.uuid.startsWith("eeeeeeee") || cube.uuid.startsWith("cccccccc")) continue;
-      if (cube.uuid.startsWith("dddddddd")) continue; // draw-mode cubes
-      if (armorCubeSet.has(cube)) continue;           // armor preview cubes
-
-      // Resolve the PCK root bone name for this cube
-      const parent = cube.parent;
-      if (!(parent instanceof Group)) continue;
-      let boneName = parent.name;
-      if (PARENT_NAME_TO_BYTE[boneName] === undefined) {
-        const grandparent = parent.parent;
-        if (!(grandparent instanceof Group)) continue;
-        boneName = grandparent.name;
-        if (PARENT_NAME_TO_BYTE[boneName] === undefined) continue;
-      }
-
-      // Build the Bedrock cube entry: origin = from, size = to - from
-      const sizeX = Math.round((cube.to[0] - cube.from[0]) * 1000) / 1000;
-      const sizeY = Math.round((cube.to[1] - cube.from[1]) * 1000) / 1000;
-      const sizeZ = Math.round((cube.to[2] - cube.from[2]) * 1000) / 1000;
-      const bedrockCube = {
-        origin: [
-          Math.round(cube.from[0] * 1000) / 1000,
-          Math.round(cube.from[1] * 1000) / 1000,
-          Math.round(cube.from[2] * 1000) / 1000,
-        ],
-        size: [sizeX, sizeY, sizeZ],
-        uv: [cube.uv_offset[0], cube.uv_offset[1]],
-        inflate: cube.inflate || 0,
-        mirror: !!cube.mirror_uv,
-      };
-
-      if (!cube.pck_armor_mask) {
-        // Plain cube: append to its base bone
-        const targetBone = PCK_BONE_TO_BEDROCK_BASE[boneName];
-        if (!targetBone) continue;
-        // Mirror cube origin X for arm/leg bones: PCK stores these on the opposite
-        // X side to Bedrock convention.  new_origin_X = -(origin_X + size_X)
-        const cubeToPush = MIRROR_LIMB_BONES.has(targetBone)
-          ? Object.assign({}, bedrockCube, {
-              origin: [
-                -(bedrockCube.origin[0] + bedrockCube.size[0]),
-                bedrockCube.origin[1],
-                bedrockCube.origin[2],
-              ],
-            })
-          : bedrockCube;
-        if (!baseBoneCubes[targetBone]) baseBoneCubes[targetBone] = [];
-        baseBoneCubes[targetBone].push(cubeToPush);
-      } else {
-        // Armor-masked cube: route into every matching armor sub-bone
-        for (const [bit, boneByParent] of Object.entries(ARMOR_BIT_BONE)) {
-          if ((cube.pck_armor_mask & Number(bit)) === 0) continue;
-          const targetBone = boneByParent[boneName];
-          if (!targetBone) continue;
-          if (!armorBoneCubes[targetBone]) armorBoneCubes[targetBone] = [];
-          const alreadyAdded = armorBoneCubes[targetBone].some(
-            (c) =>
-              c.origin[0] === bedrockCube.origin[0] &&
-              c.origin[1] === bedrockCube.origin[1] &&
-              c.origin[2] === bedrockCube.origin[2] &&
-              c.size[0]   === bedrockCube.size[0] &&
-              c.uv[0]     === bedrockCube.uv[0] &&
-              c.uv[1]     === bedrockCube.uv[1],
-          );
-          if (!alreadyAdded) {
-            // Also mirror X for armor cubes landing on arm/leg armor sub-bones.
-            const armorCubeToPush = MIRROR_LIMB_ARMOR_BONES.has(targetBone)
-              ? Object.assign({}, bedrockCube, {
-                  origin: [
-                    -(bedrockCube.origin[0] + bedrockCube.size[0]),
-                    bedrockCube.origin[1],
-                    bedrockCube.origin[2],
-                  ],
-                })
-              : bedrockCube;
-            armorBoneCubes[targetBone].push(armorCubeToPush);
-          }
-        }
-      }
-    }
-
-    // Build a live lookup of root PCK bone group origins, used to set the correct
-    // pivot on every Bedrock bone that inherits from that root.
-    // When a root bone has a Y offset (e.g. HEAD Y 15), every child Bedrock bone
-    // that belongs to that group must use the shifted pivot, not the template default.
-    const liveBonePivot = {};
-    const PCK_BONE_NAMES = ["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"];
-    for (const pckName of PCK_BONE_NAMES) {
-      const g = Group.all.find((gr) => gr.name === pckName);
-      if (g) liveBonePivot[pckName] = g.origin.slice();
-    }
-
-    // Map each Bedrock bone to the PCK root bone whose live pivot it should inherit.
-    // Armor-offset bones are excluded here — they use locator positions instead (below).
-    const BEDROCK_BONE_TO_PCK_BONE = {
-      head:                     "HEAD",
-      helmet:                   "HEAD",
-      helmetArmorOffset:        "HEAD",
-      body:                     "BODY",
-      jacket:                   "BODY",
-      bodyArmor:                "BODY",
-      bodyArmorOffset:          "BODY",
-      rightArm:                 "ARM0",
-      rightArmArmor:            "ARM0",
-      rightArmArmorOffset:      "ARM0",
-      rightItem:                "ARM0",
-      leftArm:                  "ARM1",
-      leftArmArmor:             "ARM1",
-      leftArmArmorOffset:       "ARM1",
-      leftItem:                 "ARM1",
-      rightLeg:                 "LEG0",
-      rightLegging:             "LEG0",
-      rightLeggingsArmorOffset: "LEG0",
-      rightBoot:                "LEG0",
-      rightBootArmorOffset:     "LEG0",
-      leftLeg:                  "LEG1",
-      leftLegging:              "LEG1",
-      leftLeggingsArmorOffset:  "LEG1",
-      leftBoot:                 "LEG1",
-      leftBootArmorOffset:      "LEG1",
-    };
-
-    // Map from Bedrock armor-offset bone name to the PCK armor locator name that
-    // drives its pivot. The locator world-space position becomes the bone pivot.
-    // Only waist has a special pivot source (the live WAIST group origin).
-    // All *ArmorOffset bones share the same pivot as their paired main bone,
-    // sourced from the live PCK root bone group origin via BEDROCK_BONE_TO_PCK_BONE.
-    const ARMOR_OFFSET_BONE_TO_LOCATOR = {
-      waist: null,   // driven by WAIST group pivot
-    };
-
-    // Build a live locator position lookup from the open project.
-    const locatorPositions = {};
-    for (const loc of Locator.all) {
-      if (isArmorLocator(loc)) {
-        locatorPositions[loc.name] = loc.position.slice();
-      }
-    }
-
-    // WAIST pivot comes from the WAIST group origin, not a locator.
-    const waistBoneGroup = Group.all.find((g) => g.name === "WAIST");
-    const waistPivot = waistBoneGroup ? waistBoneGroup.origin.slice() : [0, 12, 0];
-
-    // Every armor/armor_offset bone is gated on its driving locator existing.
-    // If the locator was never created (no offset for it or its parent bone),
-    // the bone carries no useful data and must be omitted from the output.
-    const LOCATOR_GATED_BONES = {
-      helmet:                   "HELMET",
-      helmetArmorOffset:        "HELMET",
-      bodyArmor:                "CHEST",
-      bodyArmorOffset:          "CHEST",
-      rightArmArmor:            "SHOULDER0",
-      rightArmArmorOffset:      "SHOULDER0",
-      leftArmArmor:             "SHOULDER1",
-      leftArmArmorOffset:       "SHOULDER1",
-      rightLegging:             "PANTS0",
-      rightLeggingsArmorOffset: "PANTS0",
-      leftLegging:              "PANTS1",
-      leftLeggingsArmorOffset:  "PANTS1",
-      rightBoot:                "BOOT0",
-      rightBootArmorOffset:     "BOOT0",
-      leftBoot:                 "BOOT1",
-      leftBootArmorOffset:      "BOOT1",
-    };
-
-    // Build the bones array, injecting both plain and armor-masked cubes,
-    // patching ALL bone pivots from live group origins and locator positions.
-    const bonesArray = Object.keys(templateBones)
-      .filter((name) => boneMap[name] !== undefined)
-      .filter((name) => {
-        // Omit armor bones whose driving locator was never created
-        const gateLocator = LOCATOR_GATED_BONES[name];
-        if (gateLocator && !locatorPositions[gateLocator]) return false;
-        return true;
-      })
-      .map((name) => {
-        const bone = boneMap[name];
-
-        // Determine pivot from the most specific live source available:
-        //   1. Armor-offset bones: use the live locator position (or waist group origin).
-        //   2. All other bones: use the live PCK root bone's group.origin so that
-        //      any Y offset applied during import is reflected correctly.
-        //   3. Fallback: template default (no offset, standard skin).
-        let pivot = bone.pivot;
-
-        if (Object.prototype.hasOwnProperty.call(ARMOR_OFFSET_BONE_TO_LOCATOR, name)) {
-          // Armor-offset bone
-          const locName = ARMOR_OFFSET_BONE_TO_LOCATOR[name];
-          if (locName === null) {
-            // waist: use live WAIST group origin
-            pivot = waistPivot.slice();
-          } else if (locatorPositions[locName]) {
-            pivot = locatorPositions[locName].slice();
-          }
-        } else {
-          // Non-offset bone: inherit pivot from live PCK root bone group origin.
-          // For arm/leg bones the pivot X is derived from the mirrored cube geometry
-          // (inner body-side edge) instead of the raw PCK bone origin, because the
-          // PCK coordinate system stores arm/leg pivots on the opposite X side.
-          const pckBone = BEDROCK_BONE_TO_PCK_BONE[name];
-          if (pckBone && liveBonePivot[pckBone]) {
-            pivot = liveBonePivot[pckBone].slice();
-
-            // Arm/leg bones: compute pivot X from the mirrored first cube.
-            // rightArm / rightLeg (−X side): pivot X = max X of first cube = origin[0]+size[0]
-            // leftArm  / leftLeg  (+X side): pivot X = min X of first cube = origin[0]
-            // Leg pivots use center X instead of edge: (origin[0]+origin[0]+size[0])/2
-            const LIMB_SIDE = {
-              rightArm: "right", leftArm: "left",
-              rightArmArmor: "right", leftArmArmor: "left",
-              rightArmArmorOffset: "right", leftArmArmorOffset: "left",
-              rightItem: "right", leftItem: "left",
-              rightLeg: "rightLeg", leftLeg: "leftLeg",
-              rightLegging: "rightLeg", leftLegging: "leftLeg",
-              rightLeggingsArmorOffset: "rightLeg", leftLeggingsArmorOffset: "leftLeg",
-              rightBoot: "rightLeg", leftBoot: "leftLeg",
-              rightBootArmorOffset: "rightLeg", leftBootArmorOffset: "leftLeg",
-            };
-            const side = LIMB_SIDE[name];
-            if (side !== undefined) {
-              const baseName = side === "right" ? "rightArm"
-                             : side === "left"  ? "leftArm"
-                             : side === "rightLeg" ? "rightLeg"
-                             : "leftLeg";
-              const cubes = baseBoneCubes[baseName];
-              if (cubes && cubes.length > 0) {
-                // Custom cubes present: compute pivot X from the mirrored first cube.
-                const fc = cubes[0];
-                if (side === "right") {
-                  pivot[0] = fc.origin[0] + fc.size[0]; // inner body edge of -X arm
-                } else if (side === "left") {
-                  pivot[0] = fc.origin[0];               // inner body edge of +X arm
-                } else if (side === "rightLeg") {
-                  pivot[0] = fc.origin[0] + fc.size[0] / 2; // center of -X leg
-                } else {
-                  pivot[0] = fc.origin[0] + fc.size[0] / 2; // center of +X leg
-                }
-              } else {
-                // No custom cubes: keep template pivot X, only use live Y.
-                if (bone.pivot) pivot[0] = bone.pivot[0];
-              }
-            }
-          }
-        }
-
-        const entry = { name, parent: bone.parent, pivot, rotation: bone.rotation };
-
-        // When a base part's _DISABLED flag is set AND the skin has custom BOX cubes
-        // for that bone, the template skeleton cube is redundant and should be omitted —
-        // the custom geometry fully replaces it.  If no custom cubes exist for that bone
-        // the template cube must stay so the bone isn't rendered as empty geometry.
-        //
-        // Disable mask per Bedrock base bone:
-        //   head:     HEAD_DISABLED       (0x400)
-        //   body:     BODY_DISABLED       (0x2000)
-        //   rightArm: RIGHT_ARM_DISABLED  (0x800)
-        //   leftArm:  LEFT_ARM_DISABLED   (0x1000)
-        //   rightLeg: RIGHT_LEG_DISABLED  (0x4000)
-        //   leftLeg:  LEFT_LEG_DISABLED   (0x8000)
-        const BASE_BONE_DISABLE_FLAG = {
-          head:     0x400,
-          body:     0x2000,
-          rightArm: 0x800,
-          leftArm:  0x1000,
-          rightLeg: 0x4000,
-          leftLeg:  0x8000,
-        };
-        const plainCubes = baseBoneCubes[name] || [];
-        const disableFlag = BASE_BONE_DISABLE_FLAG[name];
-        const partIsDisabled = disableFlag !== undefined && (flags & disableFlag) !== 0;
-        // When a part is disabled, never include the template skeleton cube — the skin
-        // either provides its own replacement cubes or intentionally leaves the bone empty.
-        const templateCubes = !partIsDisabled && bone.cubes && bone.cubes.length > 0 ? [...bone.cubes] : [];
-        // Armor-masked BOX cubes go into their armor sub-bones
-        const injected = armorBoneCubes[name] || [];
-        const allCubes = [...templateCubes, ...plainCubes, ...injected];
-        if (allCubes.length > 0) entry.cubes = allCubes;
-        entry.META_BoneType = bone.META_BoneType;
-        return entry;
-      });
-
-    // Map ANIM flags to animation properties
-    // Static Arms (0x1), Statue of Liberty (0x80), Synced Arms (0x40),
-    // Static Legs (0x4), Synced Legs (0x20), Head Bobbing Off (0x200),
-    // Backwards Crouch (0x20000), All Armor Disabled (0x100), Dinnerbone (0x80000000)
-    // Bad Santa (0x8) is intentionally excluded per spec.
-    const animArmsDown           = (flags & 0x1)        !== 0; // Static Arms
-    const animArmsOutFront       = (flags & 0x80)       !== 0; // Statue of Liberty
-    const animInvertedCrouch     = (flags & 0x20000)    !== 0; // Backwards Crouch
-    const animNoHeadBob          = (flags & 0x200)      !== 0; // Head Bobbing Off
-    const animSingleArmAnimation = (flags & 0x40)       !== 0; // Synced Arms
-    const animSingleLegAnimation = (flags & 0x20)       !== 0; // Synced Legs
-    const animStationaryLegs     = (flags & 0x4)        !== 0; // Static Legs
-    const animStatueOfLiberty    = (flags & 0x80)       !== 0; // Statue of Liberty (ArmsOutFront alias)
-    const animUpsideDown         = (flags & 0x80000000) !== 0; // Dinnerbone
-    // All Armor Disabled only sets animationDontShowArmor if no Force Armor flag overrides it
-    const allArmorOff            = (flags & 0x100)      !== 0;
-    const anyForceArmor          = (flags & BEDROCK_FORCE_ARMOR_EXACT) !== 0;
-    const animDontShowArmor      = allArmorOff && !anyForceArmor;
-
-    const skinName = (Project.name || "skin").replace(/\s+/g, "_");
-    const hasCape = Texture.all.some((t) => t.name && t.name.toLowerCase().includes("cape"));
-    const capeValue = hasCape ? `${skinName}_cape.png` : null;
-
-    const geoKey = `geometry.Skins.PCK.${skinName}`;
-    const textureHeight = isSlim || is64x64 ? 64 : 32;
-
-    const output = {
-      [geoKey]: {
-        bones: bonesArray,
-        texturewidth: 64,
-        textureheight: textureHeight,
-        META_ModelVersion: "1.0.6",
-        rigtype: isSlim ? "slim" : "normal",
-        cape: capeValue,
-        animationArmsDown:            animArmsDown,
-        animationArmsOutFront:        animArmsOutFront,
-        animationDontShowArmor:       animDontShowArmor,
-        animationInvertedCrouch:      animInvertedCrouch,
-        animationNoHeadBob:           animNoHeadBob,
-        animationSingleArmAnimation:  animSingleArmAnimation,
-        animationSingleLegAnimation:  animSingleLegAnimation,
-        animationStationaryLegs:      animStationaryLegs,
-        animationStatueOfLibertyArms: animStatueOfLiberty,
-        animationUpsideDown:          animUpsideDown,
-      },
-    };
-
-    Blockbench.export({
-      type: "Bedrock Geometry JSON",
-      extensions: ["json"],
-      name: skinName,
-      content: JSON.stringify(output, null, 2),
-    });
-  }
-
   Plugin.register("pck_skin_helper", {
     title: "PCK Skin Helper",
     author: "BehaviorPack",
@@ -3129,7 +2571,7 @@ void main(void) {
     description: "Create Minecraft Legacy Console skins and export them for PCK Studio",
     about:
       'To get started, click "<b>PCK Skin</b>"<br>└─ You can delete <b>cape.png</b> or replace it with your own.<br>└─ Use <b>"Toggle Drawbal Ghost"</b> to allow drawing on the base model.<br>└─ "<b>Preview</b>" to display Armor placement and Animations.<br>└─ "<b>ANIM FLAGS</b>" is for controlling parts of your Skin ingame.<br>You can click "<b>Import PSM..</b>" to import a Skin from PCK Studio.<br>You can also "<b>Export PSM..</b>" to transfer it back to PCK Studio.<br>Use "<b>Validate PCK Skin</b>" to make sure your Skin will import correctly.<br>A option to "<b>Unlock Root Bones</b>" exist but is not recommended.<img src="data:image/png;base64,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"><br><p class="note"><i>Note that your Skin Texture can <b>not</b> be greater than 32kb and your UV can <b>only</b> be 64x64 or 64x32.</i></p>',
-    version: "1.0.4",
+    version: "1.0.3",
     min_version: "4.0.0",
     creation_date: "2026-03-11",
     variant: "both",
@@ -3137,7 +2579,7 @@ void main(void) {
 
     onload() {
       this.actionNew = new Action("new_pck_skin", {
-        name: "PCK Skin Model (.PSM)",
+        name: "PCK Skin",
         description: "Creates a template PCK Skin",
         icon: "icon-player",
         click() {
@@ -3156,8 +2598,8 @@ void main(void) {
       MenuBar.addAction(this.actionValidate, "file.export");
 
       this.actionImportPSM = new Action("import_psm", {
-        name: "Import PSM",
-        description: "Import custom skin as a PCK Studio file (.PSM)",
+        name: "Import PSM…",
+        description: "Import custom skin boxes from a PCK Studio PSM file",
         icon: "download",
         condition: { formats: ["pck_skin"] },
         click() {
@@ -3185,8 +2627,8 @@ void main(void) {
       });
 
       this.actionExportPSM = new Action("export_psm", {
-        name: "Export PSM",
-        description: "Export custom skin as a PCK Studio file (.PSM)",
+        name: "Export PSM…",
+        description: "Export custom skin boxes as a PCK Studio PSM file",
         icon: "upload",
         condition: { formats: ["pck_skin"] },
         click() {
@@ -3243,17 +2685,6 @@ void main(void) {
         },
       });
 
-      this.actionExportBedrock = new Action("export_bedrock_geometry", {
-        name: "Export Bedrock Geometry",
-        description: "Export skin as a Bedrock-compatible geometry JSON for use with PCK Studio",
-        icon: "language",
-        condition: { formats: ["pck_skin"] },
-        click() {
-          exportBedrockGeometry();
-        },
-      });
-      MenuBar.addAction(this.actionExportBedrock, "file.export");
-
       MenuBar.addAction(this.actionImportPSM, "file.import");
       MenuBar.addAction(this.actionExportPSM, "file.export");
       MenuBar.addAction(this.actionToggleLock, "file");
@@ -3265,7 +2696,6 @@ void main(void) {
       this.actionValidate.delete();
       this.actionImportPSM.delete();
       this.actionExportPSM.delete();
-      this.actionExportBedrock.delete();
       this.actionToggleLock.delete();
       this.actionDrawMode.delete();
       if (drawModeEnabled) {
