@@ -1,7 +1,7 @@
 Plugins for working with **PCK skins** for **Minecraft Legacy editions** using **Blockbench**.
 
 ## PCK-Skin-Helper (v1.0.4)
-A Blockbench plugin that helps create and prepare skins for **PCK Studio** used with Minecraft Legacy versions.
+A Blockbench plugin that helps create and export skins for **PCK Studio** using the PSM
 
 ### Changelog
 - Export skins to **Minecraft Bedrock format**
