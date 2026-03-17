@@ -2119,7 +2119,7 @@ void main(void) {
       id: "pck_anim",
       name: "ANIM Flags",
       icon: "animation",
-      condition: { formats: ["pck_skin"] },
+      condition: { modes: ["edit"], formats: ["pck_skin"] },
       component: {
         name: "panel-pck_anim",
         data() {
