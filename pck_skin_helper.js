@@ -1007,20 +1007,7 @@
       });
     });
 
-    Texture.all.forEach((tex) => {
-      const w = tex.width;
-      const h = tex.height;
-      const valid = (w === 64 && h === 64) || (w === 64 && h === 32);
-      if (!valid) {
-        issues.push({
-          name: "Invalid texture size",
-          description:
-            `Texture **"${tex.name || "unnamed"}"** is ${w}×${h} px. ` +
-            `Only **64×64** (Steve/Alex layout) and **64×32** (classic layout) are supported. ` +
-            `Please resize the texture to one of those dimensions before exporting.`,
-        });
-      }
-    });
+    // Any PNG size is permitted — no texture-size validation needed.
 
     Group.all.forEach((group) => {
       if (group.parent instanceof Group) return;
@@ -1031,6 +1018,44 @@
           description:
             `Root bone **"${group.name}"** has a rotation of [${r.map((v) => Math.round(v * 100) / 100).join(", ")}]. ` +
             `Root bones cannot be rotated — please reset its rotation to [0, 0, 0].`,
+        });
+      }
+    });
+
+    // Cubes must live inside one of the 6 main bones (HEAD/BODY/ARM0/ARM1/LEG0/LEG1)
+    // or inside a valid offset folder that is itself inside one of those bones.
+    // Cubes at scene root, or directly inside ROOT or WAIST, are invalid.
+    const MAIN_BONES = new Set(["HEAD", "BODY", "ARM0", "ARM1", "LEG0", "LEG1"]);
+    Cube.all.forEach((cube) => {
+      if (cube.uuid.startsWith("eeeeeeee") || cube.uuid.startsWith("cccccccc")) return;
+      if (cube.uuid.startsWith(DRAW_MODE_UUID_PREFIX)) return;
+      if (Project.pck_armor_cubes && Project.pck_armor_cubes.includes(cube)) return;
+
+      const parent = cube.parent;
+      let isValidPlacement = false;
+
+      if (parent instanceof Group) {
+        if (MAIN_BONES.has(parent.name)) {
+          // Direct child of a main bone — always valid
+          isValidPlacement = true;
+        } else if (VALID_OFFSET_FOLDERS.has(parent.name)) {
+          // Inside an offset folder — valid only if that folder's own parent is a main bone
+          const grandparent = parent.parent;
+          if (grandparent instanceof Group && MAIN_BONES.has(grandparent.name)) {
+            isValidPlacement = true;
+          }
+        }
+      }
+
+      if (!isValidPlacement) {
+        const location = !(parent instanceof Group) ? "the scene root" : `**"${parent.name}"**`;
+        issues.push({
+          name: "Cube in invalid location",
+          description:
+            `Cube **"${cube.name}"** is placed inside ${location}. ` +
+            `Cubes must be inside one of the main bones: HEAD, BODY, ARM0, ARM1, LEG0, or LEG1 ` +
+            `(or inside a recognised offset folder nested under one of those bones). ` +
+            `Cubes placed at scene root or inside ROOT/WAIST are not exported.`,
         });
       }
     });
