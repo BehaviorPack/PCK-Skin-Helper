@@ -1161,7 +1161,8 @@
       ctx.font = "60px sans-serif";
       ctx.textAlign = "left";
       ctx.fillStyle = colDark;
-      ctx.fillText(`${skinName}  |  Legacy Skin`, 48, 112);
+      const skinIdSuffix = Project.pck_skin_id ? `  |  ${Project.pck_skin_id}` : "";
+      ctx.fillText(`${skinName}${skinIdSuffix}`, 48, 112);
 
       const skinTex = Texture.all.find((t) => t.img && t.img.src && t !== Texture.all[1]);
       if (skinTex) {
