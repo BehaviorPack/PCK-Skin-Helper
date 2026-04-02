@@ -87,6 +87,16 @@
         color: var(--ore-gold);
         font-weight: 700;
       }
+      @media (max-width: 600px) {
+        .status-indicator { display: none !important; }
+        #reload-btn { display: none !important; }
+        #status-credit {
+          position: static;
+          transform: none;
+          width: 100%;
+          text-align: center;
+        }
+      }
       .status-indicator { display: flex; align-items: center; gap: 8px; }
       .status-dot {
         width: 10px; height: 10px;
