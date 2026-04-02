@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PCK Skin Catalog</title>
+    <style>
+      :root {
+        --bg: #2a2a2a;
+        --bg2: #333333;
+        --panel: #3c3c3c;
+        --panel2: #444444;
+        --card: #3a3a3a;
+        --card-hover: #464646;
+        --border: #555555;
+        --border-light: #6a6a6a;
+        --ore-diamond: #5decf5;
+        --ore-gold: #ffcf40;
+        --ore-iron: #d4c8b8;
+        --ore-emerald: #17dd62;
+        --ore-redstone: #ff3c3c;
+        --ore-lapis: #6897cf;
+        --ore-netherite: #9a9a9a;
+        --ore-amethyst: #c77dff;
+        --ore-copper: #e8854a;
+        --text: #f2f2f2;
+        --text-dim: #c8c8c8;
+        --text-muted: #888888;
+        --text-inv: #2a2a2a;
+        --accent: var(--ore-diamond);
+        --accent2: var(--ore-gold);
+        --sans: "Noto Sans", "Segoe UI", sans-serif;
+        --pixel: "Noto Sans", monospace;
+        --radius: 2px;
+        --radius-sm: 1px;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 0; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+      header {
+        background: var(--panel);
+        border-bottom: 3px solid #000;
+        box-shadow: 0 3px 0 var(--border), inset 0 1px 0 rgba(255,255,255,0.06);
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      #status-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 28px;
+        background: var(--bg2);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .status-indicator { display: flex; align-items: center; gap: 8px; }
+      .status-dot {
+        width: 10px; height: 10px;
+        background: var(--text-muted);
+        flex-shrink: 0;
+        clip-path: polygon(0 25%, 25% 0, 75% 0, 100% 25%, 100% 75%, 75% 100%, 25% 100%, 0 75%);
+      }
+      #status-bar.loading .status-dot { background: var(--ore-gold); animation: blink 0.8s step-end infinite; }
+      #status-bar.ok .status-dot { background: var(--ore-emerald); }
+      #status-bar.error .status-dot { background: var(--ore-redstone); }
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+      #reload-btn {
+        margin-left: auto;
+        display: flex; align-items: center; gap: 7px;
+        background: var(--panel2);
+        border: 2px solid var(--border);
+        border-bottom: 3px solid #000;
+        color: var(--text-dim);
+        font-family: var(--sans);
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 5px 13px; cursor: pointer;
+        transition: border-color 0.12s, color 0.12s, background 0.12s;
+      }
+      #reload-btn:hover { background: var(--card-hover); border-color: var(--ore-diamond); color: var(--ore-diamond); }
+      #reload-btn:active { transform: translateY(1px); }
+
+      #toolbar {
+        background: var(--panel);
+        border-bottom: 3px solid #000;
+        box-shadow: 0 3px 0 var(--border);
+        padding: 14px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .toolbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .toolbar-label {
+        font-size: 10px; font-weight: 700;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--text-muted); white-space: nowrap; min-width: 72px;
+      }
+      .search-wrap { position: relative; flex: 1; min-width: 220px; }
+      .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+      #search-input {
+        width: 100%;
+        background: var(--bg);
+        border: 2px solid var(--border);
+        border-bottom: 3px solid #000;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 13px; font-weight: 600;
+        padding: 8px 12px 8px 36px;
+        outline: none;
+        transition: border-color 0.12s;
+        letter-spacing: 0.02em;
+      }
+      #search-input:focus { border-color: var(--ore-diamond); }
+      #search-input::placeholder { color: var(--text-muted); font-weight: 400; }
+
+      .flag-divider { width: 2px; height: 20px; background: var(--border); flex-shrink: 0; }
+      .flag-btn {
+        display: flex; align-items: center; gap: 5px;
+        background: var(--bg);
+        border: 2px solid var(--border);
+        border-bottom: 3px solid #000;
+        color: var(--text-muted);
+        font-family: var(--sans);
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.04em; text-transform: uppercase;
+        padding: 5px 11px; cursor: pointer;
+        transition: border-color 0.12s, color 0.12s, background 0.12s;
+        white-space: nowrap;
+      }
+      .flag-btn:hover { border-color: var(--border-light); color: var(--text); }
+      .flag-btn:active { transform: translateY(1px); border-bottom-width: 2px; }
+      .flag-btn.active { background: rgba(93,236,245,0.1); border-color: var(--ore-diamond); color: var(--ore-diamond); }
+      .flag-btn[data-flag="female"].active { background: rgba(200,125,255,0.1); border-color: var(--ore-amethyst); color: var(--ore-amethyst); }
+      .flag-btn[data-flag="male"].active { background: rgba(104,151,207,0.12); border-color: var(--ore-lapis); color: var(--ore-lapis); }
+      .flag-btn[data-flag="human"].active { background: rgba(255,207,64,0.1); border-color: var(--ore-gold); color: var(--ore-gold); }
+      .flag-btn[data-flag="creature"].active { background: rgba(23,221,98,0.1); border-color: var(--ore-emerald); color: var(--ore-emerald); }
+      .flag-btn[data-flag="robot"].active { background: rgba(212,184,150,0.12); border-color: var(--ore-iron); color: var(--ore-iron); }
+      .flag-btn[data-flag="unfair"].active { background: rgba(255,60,60,0.12); border-color: var(--ore-redstone); color: var(--ore-redstone); }
+      .flag-btn[data-flag="na"].active { background: rgba(154,154,154,0.12); border-color: var(--ore-netherite); color: var(--ore-netherite); }
+      .flag-btn[data-flag="missing"].active { background: rgba(232,133,74,0.12); border-color: var(--ore-copper); color: var(--ore-copper); }
+      .flag-btn[data-flag="unknown"].active { background: rgba(150,150,150,0.1); border-color: #888; color: #bbb; }
+      .fbcount {
+        display: inline-block; margin-left: 5px;
+        background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1);
+        font-size: 10px; font-weight: 900; padding: 0px 5px;
+        letter-spacing: 0; color: var(--text-dim); min-width: 18px; text-align: center;
+      }
+      .flag-btn.active .fbcount { background: rgba(0,0,0,0.25); color: inherit; border-color: rgba(255,255,255,0.15); }
+
+      #packs-area { padding: 24px 28px 60px; }
+      .pack-section { margin-bottom: 36px; animation: slideIn 0.3s ease both; }
+      @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+      .pack-header {
+        display: flex; flex-direction: column;
+        margin-bottom: 14px;
+        border: 2px solid var(--border);
+        border-bottom: 3px solid #000;
+        overflow: hidden;
+        background: var(--panel);
+      }
+      .pack-header-top { display: flex; align-items: stretch; }
+      .pack-accent-bar { width: 5px; flex-shrink: 0; background: var(--ore-diamond); }
+      .pack-header-inner { display: flex; align-items: center; gap: 14px; padding: 10px 16px; flex: 1; flex-wrap: wrap; }
+      .pack-name-wrap { display: flex; flex-direction: column; gap: 3px; }
+      .pack-name { font-size: 14px; font-weight: 900; letter-spacing: 0.05em; color: var(--text); text-transform: uppercase; line-height: 1; }
+      .pack-id-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+      .pack-id-badge .id-val { color: var(--ore-gold); font-weight: 900; letter-spacing: 0.06em; }
+      .pack-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+      .pack-count { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+      .pack-count .count-num { font-size: 18px; font-weight: 900; color: var(--ore-emerald); line-height: 1; }
+
+      .tag-counts { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; justify-content: center; padding: 8px 14px; flex: 1; }
+      .tag-pill { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 6px; border: 1px solid; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+      .tag-pill .tp-count { font-size: 12px; font-weight: 900; }
+      .tp-female { border-color: var(--ore-amethyst); color: var(--ore-amethyst); background: rgba(199,125,255,0.08); }
+      .tp-male { border-color: var(--ore-lapis); color: var(--ore-lapis); background: rgba(104,151,207,0.08); }
+      .tp-human { border-color: var(--ore-gold); color: var(--ore-gold); background: rgba(255,207,64,0.08); }
+      .tp-creature { border-color: var(--ore-emerald); color: var(--ore-emerald); background: rgba(23,221,98,0.08); }
+      .tp-robot { border-color: var(--ore-iron); color: var(--ore-iron); background: rgba(212,184,150,0.08); }
+      .tp-unfair { border-color: var(--ore-redstone); color: var(--ore-redstone); background: rgba(255,60,60,0.08); }
+      .tp-na { border-color: var(--ore-netherite); color: var(--ore-netherite); background: rgba(154,154,154,0.08); }
+      .tp-missing { border-color: var(--ore-copper); color: var(--ore-copper); background: rgba(232,133,74,0.08); }
+      .tp-unknown { border-color: #666; color: #999; background: rgba(150,150,150,0.06); }
+
+      .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; }
+      .skin-card {
+        background: var(--card);
+        border: 2px solid var(--border);
+        border-bottom: 3px solid #000;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 12px 8px 10px; gap: 7px;
+        cursor: default;
+        transition: border-color 0.1s, background 0.1s, transform 0.1s;
+        position: relative; overflow: hidden;
+      }
+      .skin-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: transparent; transition: background 0.1s; }
+      .skin-card:hover { border-color: var(--ore-diamond); background: var(--card-hover); transform: translateY(-2px); }
+      .skin-card:hover::before { background: var(--ore-diamond); }
+      .skin-icon-wrap { width: 64px; height: 64px; position: relative; flex-shrink: 0; }
+      .skin-icon { width: 64px; height: 64px; image-rendering: pixelated; object-fit: contain; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,0,0,0.5); }
+      .skin-icon-placeholder { width: 64px; height: 64px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+      .skin-info { width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+      .skin-name { font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.25; word-break: break-word; letter-spacing: 0.01em; }
+      .skin-id { font-size: 9px; font-weight: 600; color: var(--ore-gold); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; background: rgba(0,0,0,0.3); padding: 1px 5px; border: 1px solid rgba(255,207,64,0.2); display: inline-block; }
+
+      .game-flag-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 6px; border: 1px solid; text-transform: uppercase; display: inline-flex; align-items: center; gap: 3px; margin-top: 1px; }
+      .gf-female { border-color: rgba(199,125,255,0.5); color: var(--ore-amethyst); background: rgba(199,125,255,0.1); }
+      .gf-male { border-color: rgba(104,151,207,0.5); color: var(--ore-lapis); background: rgba(104,151,207,0.1); }
+      .gf-creature { border-color: rgba(23,221,98,0.5); color: var(--ore-emerald); background: rgba(23,221,98,0.08); }
+      .gf-human { border-color: rgba(255,207,64,0.5); color: var(--ore-gold); background: rgba(255,207,64,0.08); }
+      .gf-robot { border-color: rgba(212,184,150,0.5); color: var(--ore-iron); background: rgba(212,184,150,0.1); }
+      .gf-unknown { border-color: #444; color: #888; background: rgba(100,100,100,0.08); }
+      .gf-na { border-color: rgba(139,115,85,0.5); color: var(--ore-netherite); background: rgba(139,115,85,0.1); }
+      .gf-missing { border-color: rgba(232,133,74,0.5); color: var(--ore-copper); background: rgba(232,133,74,0.08); border-style: dashed; }
+      .gf-unfair-stack { border-left: 3px solid var(--ore-redstone) !important; padding-left: 5px; }
+
+      .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 80px 40px; color: var(--text-muted); text-align: center; }
+      .empty-icon { opacity: 0.25; }
+      .empty-state .big { font-size: 16px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--border-light); }
+      .empty-state p { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+      .error-toast { background: rgba(255,60,60,0.1); border: 2px solid rgba(255,60,60,0.4); border-bottom: 3px solid rgba(180,0,0,0.6); color: #ff8080; padding: 10px 16px; margin: 0 28px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: none; }
+      .error-toast.show { display: block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div id="status-bar" class="loading">
+        <div class="status-indicator">
+          <div class="status-dot"></div>
+          <span id="status-text">Loading catalog…</span>
+        </div>
+        <button id="reload-btn">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M10 6a4 4 0 1 1-1.172-2.828L7.414 4.586 11 4l-.586-3.586-1.5 1.5A6 6 0 1 0 12 6h-2z"/>
+          </svg>
+          Reload
+        </button>
+      </div>
+
+      <div id="toolbar">
+        <div class="toolbar-row">
+          <span class="toolbar-label">Search</span>
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="5.5" cy="5.5" r="4" stroke="#7A7570" stroke-width="1.5"></circle>
+              <line x1="8.5" y1="8.5" x2="12.5" y2="12.5" stroke="#7A7570" stroke-width="2" stroke-linecap="square"></line>
+            </svg>
+            <input type="text" id="search-input" placeholder="Filter skins by name or ID…" />
+          </div>
+        </div>
+
+        <div class="toolbar-row" id="flag-filter-bar">
+          <span class="toolbar-label" title="GAME_FLAGS is a 5-bit field used to classify skins for a cut team/minigame system.&#10;&#10;Bit 1 (0x01) = Unfair Battle&#10;Bit 2 (0x02) = Female&#10;Bit 3 (0x04) = Male&#10;Bit 4 (0x08) = Human-shaped&#10;Bit 5 (0x10) = Biological">
+            Game Flags
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="#7A7570" style="margin-left:3px;vertical-align:middle">
+              <circle cx="5" cy="5" r="4.5" fill="none" stroke="#7A7570"></circle>
+              <rect x="4.5" y="4" width="1" height="3.5" fill="#7A7570"></rect>
+              <rect x="4.5" y="2.5" width="1" height="1" fill="#7A7570"></rect>
+            </svg>
+          </span>
+
+          <button class="flag-btn active" data-flag="all">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="1" opacity="0.6"></rect></svg>
+            All <span class="fbcount" id="cnt-all">0</span>
+          </button>
+          <div class="flag-divider"></div>
+          <button class="flag-btn" data-flag="female" title="0x1A — Bio + Human + Female">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="4" r="3" stroke="currentColor" stroke-width="1.2"></circle><line x1="5" y1="7" x2="5" y2="10" stroke="currentColor" stroke-width="1.2"></line><line x1="3" y1="8.5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.2"></line></svg>
+            Female <span class="fbcount" id="cnt-female">0</span>
+          </button>
+          <button class="flag-btn" data-flag="male" title="0x1C — Bio + Human + Male">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="4" cy="6" r="3" stroke="currentColor" stroke-width="1.2"></circle><line x1="6.5" y1="3.5" x2="9.5" y2="0.5" stroke="currentColor" stroke-width="1.2"></line><line x1="7" y1="0.5" x2="9.5" y2="0.5" stroke="currentColor" stroke-width="1.2"></line><line x1="9.5" y1="0.5" x2="9.5" y2="3" stroke="currentColor" stroke-width="1.2"></line></svg>
+            Male <span class="fbcount" id="cnt-male">0</span>
+          </button>
+          <button class="flag-btn" data-flag="human" title="0x18 — Bio + Human (neutral)">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="3" y="0" width="4" height="4" rx="1"></rect><rect x="2" y="5" width="6" height="5" rx="1"></rect><rect x="0" y="5" width="2" height="4"></rect><rect x="8" y="5" width="2" height="4"></rect></svg>
+            Human <span class="fbcount" id="cnt-human">0</span>
+          </button>
+          <button class="flag-btn" data-flag="creature" title="0x16 — Bio set, Human NOT set">
+            <svg width="11" height="10" viewBox="0 0 11 10" fill="currentColor"><rect x="0" y="4" width="11" height="6"></rect><rect x="1" y="2" width="3" height="3"></rect><rect x="7" y="2" width="3" height="3"></rect><rect x="2" y="0" width="1" height="2"></rect><rect x="8" y="0" width="1" height="2"></rect><rect x="3" y="6" width="1" height="3"></rect><rect x="7" y="6" width="1" height="3"></rect></svg>
+            Creature <span class="fbcount" id="cnt-creature">0</span>
+          </button>
+          <button class="flag-btn" data-flag="robot" title="0x0E — Bio NOT set, Mechanical">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="3" width="8" height="6"></rect><rect x="2" y="1" width="6" height="3"></rect><rect x="4" y="0" width="2" height="2"></rect><rect x="2" y="5" width="2" height="2" fill="#1C1B19"></rect><rect x="6" y="5" width="2" height="2" fill="#1C1B19"></rect></svg>
+            Robot <span class="fbcount" id="cnt-robot">0</span>
+          </button>
+          <div class="flag-divider"></div>
+          <button class="flag-btn" data-flag="unfair" title="0x01 bit set — hitbox-obscuring geometry">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="5,0 10,10 0,10"></polygon><rect x="4.5" y="3.5" width="1" height="3.5" fill="#1C1B19"></rect><rect x="4.5" y="8" width="1" height="1" fill="#1C1B19"></rect></svg>
+            Unfair <span class="fbcount" id="cnt-unfair">0</span>
+          </button>
+          <button class="flag-btn" data-flag="na" title="Abandoned — value explicitly 0x00">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1.5"></rect><line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" stroke-width="1.5"></line><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5"></line></svg>
+            Abandoned <span class="fbcount" id="cnt-na">0</span>
+          </button>
+          <button class="flag-btn" data-flag="missing" title="Missing / not set">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1"></rect><rect x="4.5" y="3" width="1" height="3" fill="currentColor"></rect><rect x="4.5" y="7" width="1" height="1" fill="currentColor"></rect></svg>
+            Missing <span class="fbcount" id="cnt-missing">0</span>
+          </button>
+          <button class="flag-btn" data-flag="unknown" title="Unknown / unrecognised value">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.4"></circle><rect x="4.5" y="3" width="1" height="3" fill="currentColor"></rect><rect x="4.5" y="7" width="1" height="1" fill="currentColor"></rect></svg>
+            Unknown <span class="fbcount" id="cnt-unknown">0</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div id="error-toast" class="error-toast"></div>
+    <div id="packs-area"></div>
+
+    <script>
+      // ── Config ──────────────────────────────────────────────────────────────
+      const DATA_URL = 'skins.json';
+      const GITHUB_BASE = 'https://raw.githubusercontent.com/BehaviorPack/PCK-Skin-Helper/refs/heads/main/icons';
+      // Icon path: GITHUB_BASE / pack-id / skin-id.png
+      // e.g. .../icons/519/00000700.png
+
+      // ── State ───────────────────────────────────────────────────────────────
+      let allPacks = [];
+      let activeFlag = 'all';
+      let searchQuery = '';
+
+      // ── DOM refs ─────────────────────────────────────────────────────────────
+      const statusBar   = document.getElementById('status-bar');
+      const statusText  = document.getElementById('status-text');
+      const toolbar     = document.getElementById('toolbar');
+      const packsArea   = document.getElementById('packs-area');
+      const searchInput = document.getElementById('search-input');
+      const errorToast  = document.getElementById('error-toast');
+
+      // ── Badge lookup table (replaces per-skin badge_title / badge_text in JSON) ──
+      const BADGE_META = {
+        'gf-female':  { text: 'Female (0x1A)',   title: 'Raw value: 0x1A\nActive bits: Female(0x02), Human(0x08), Bio(0x10)\n\nArchetype: Female Human\n  Bio(0x10) + Human(0x08) + Female(0x02)\n  Intended for female-presenting humanoid skins.' },
+        'gf-male':    { text: 'Male (0x1C)',     title: 'Raw value: 0x1C\nActive bits: Male(0x04), Human(0x08), Bio(0x10)\n\nArchetype: Male Human\n  Bio(0x10) + Human(0x08) + Male(0x04)\n  Intended for male-presenting humanoid skins.' },
+        'gf-human':   { text: 'Human (0x18)',    title: 'Raw value: 0x18\nActive bits: Human(0x08), Bio(0x10)\n\nArchetype: Human (neutral/androgynous)\n  Bio(0x10) + Human(0x08), no gender bits.\n  Value 0x18 — gender-ambiguous humanoid.' },
+        'gf-creature':{ text: 'Creature (0x16)', title: 'Raw value: 0x16\nActive bits: Female(0x02), Male(0x04), Bio(0x10)\n\nArchetype: Creature\n  Bio(0x10) set, Human(0x08) NOT set.\n  Both gender bits ON = "not applicable" sentinel (2-bit field = 11).\n  Living non-human: animals, mobs, beasts.' },
+        'gf-robot':   { text: 'Robot (0xE)',     title: 'Raw value: 0xE\nActive bits: Female(0x02), Male(0x04), Human(0x08)\n\nArchetype: Robot / Mechanical\n  Bio(0x10) NOT set — skin is non-living / mechanical.\n  Seen on Portal, Halo, and other robot skins.' },
+        'gf-na':      { text: 'Abandoned',       title: 'Raw value: 0x0\nActive bits: none\n\nAbandoned — value explicitly 0x00.\n  Seen in later packs where the system was dropped\n  (e.g. all Villains pack skins are zeroed out).' },
+        'gf-missing': { text: 'Missing',         title: 'GAME_FLAGS field absent or null in source data.' },
+        'gf-unknown': { text: 'Unknown',         title: 'Unrecognised GAME_FLAGS value — does not match any known archetype.' },
+      };
+
+      // ── SVGs for badge icons (keyed by gf- class) ────────────────────────────
+      const BADGE_ICONS = {
+        'gf-female':  `<svg width="8" height="8" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="4" r="3" stroke="currentColor" stroke-width="1.4"></circle><line x1="5" y1="7" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"></line><line x1="3" y1="8.5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.4"></line></svg>`,
+        'gf-male':    `<svg width="8" height="8" viewBox="0 0 10 10" fill="none"><circle cx="4" cy="6" r="3" stroke="currentColor" stroke-width="1.4"></circle><line x1="6.5" y1="3.5" x2="9.5" y2="0.5" stroke="currentColor" stroke-width="1.4"></line><line x1="7" y1="0.5" x2="9.5" y2="0.5" stroke="currentColor" stroke-width="1.4"></line><line x1="9.5" y1="0.5" x2="9.5" y2="3" stroke="currentColor" stroke-width="1.4"></line></svg>`,
+        'gf-human':   `<svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor"><rect x="3" y="0" width="4" height="4" rx="1"></rect><rect x="2" y="5" width="6" height="5" rx="1"></rect><rect x="0" y="5" width="2" height="4"></rect><rect x="8" y="5" width="2" height="4"></rect></svg>`,
+        'gf-creature':`<svg width="9" height="8" viewBox="0 0 11 10" fill="currentColor"><rect x="0" y="4" width="11" height="6"></rect><rect x="1" y="2" width="3" height="3"></rect><rect x="7" y="2" width="3" height="3"></rect><rect x="2" y="0" width="1" height="2"></rect><rect x="8" y="0" width="1" height="2"></rect></svg>`,
+        'gf-robot':   `<svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="3" width="8" height="6"></rect><rect x="2" y="1" width="6" height="3"></rect><rect x="4" y="0" width="2" height="2"></rect><rect x="2" y="5" width="2" height="2" fill="#1C1B19"></rect><rect x="6" y="5" width="2" height="2" fill="#1C1B19"></rect></svg>`,
+        'gf-na':      `<svg width="8" height="8" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1.5"></rect><line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" stroke-width="1.5"></line><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5"></line></svg>`,
+        'gf-missing': `<svg width="8" height="8" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1"></rect><rect x="4.5" y="3" width="1" height="3" fill="currentColor"></rect><rect x="4.5" y="7" width="1" height="1" fill="currentColor"></rect></svg>`,
+        'gf-unknown': `<svg width="8" height="8" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.4"></circle><rect x="4.5" y="3" width="1" height="3" fill="currentColor"></rect><rect x="4.5" y="7" width="1" height="1" fill="currentColor"></rect></svg>`,
+      };
+
+      // ── Tag-pill SVG icons ────────────────────────────────────────────────────
+      const TAG_ICONS = {
+        female:   `<svg fill="none" height="8" viewBox="0 0 10 10" width="8"><circle cx="5" cy="4" r="3" stroke="currentColor" stroke-width="1.4"></circle><line stroke="currentColor" stroke-width="1.4" x1="5" x2="5" y1="7" y2="10"></line><line stroke="currentColor" stroke-width="1.4" x1="3" x2="7" y1="8.5" y2="8.5"></line></svg>`,
+        male:     `<svg fill="none" height="8" viewBox="0 0 10 10" width="8"><circle cx="4" cy="6" r="3" stroke="currentColor" stroke-width="1.4"></circle><line stroke="currentColor" stroke-width="1.4" x1="6.5" x2="9.5" y1="3.5" y2="0.5"></line><line stroke="currentColor" stroke-width="1.4" x1="7" x2="9.5" y1="0.5" y2="0.5"></line><line stroke="currentColor" stroke-width="1.4" x1="9.5" x2="9.5" y1="0.5" y2="3"></line></svg>`,
+        human:    `<svg fill="currentColor" height="8" viewBox="0 0 10 10" width="8"><rect height="4" rx="1" width="4" x="3" y="0"></rect><rect height="5" rx="1" width="6" x="2" y="5"></rect><rect height="4" width="2" x="0" y="5"></rect><rect height="4" width="2" x="8" y="5"></rect></svg>`,
+        creature: `<svg fill="currentColor" height="8" viewBox="0 0 11 10" width="9"><rect height="6" width="11" x="0" y="4"></rect><rect height="3" width="3" x="1" y="2"></rect><rect height="3" width="3" x="7" y="2"></rect><rect height="2" width="1" x="2" y="0"></rect><rect height="2" width="1" x="8" y="0"></rect></svg>`,
+        robot:    `<svg fill="currentColor" height="8" viewBox="0 0 10 10" width="8"><rect height="6" width="8" x="1" y="3"></rect><rect height="3" width="6" x="2" y="1"></rect><rect height="2" width="2" x="4" y="0"></rect><rect fill="#1C1B19" height="2" width="2" x="2" y="5"></rect><rect fill="#1C1B19" height="2" width="2" x="6" y="5"></rect></svg>`,
+        unfair:   `<svg fill="currentColor" height="8" viewBox="0 0 10 10" width="8"><polygon points="5,0 10,10 0,10"></polygon><rect fill="#1C1B19" height="3.5" width="1" x="4.5" y="3.5"></rect><rect fill="#1C1B19" height="1" width="1" x="4.5" y="8"></rect></svg>`,
+        na:       `<svg fill="none" height="8" viewBox="0 0 10 10" width="8"><rect height="8" stroke="currentColor" stroke-width="1.5" width="8" x="1" y="1"></rect><line stroke="currentColor" stroke-width="1.5" x1="2" x2="8" y1="2" y2="8"></line><line stroke="currentColor" stroke-width="1.5" x1="8" x2="2" y1="2" y2="8"></line></svg>`,
+      };
+
+      // ── Load ─────────────────────────────────────────────────────────────────
+      async function loadData() {
+        setStatus('loading', 'Loading catalog…');
+        try {
+          const res = await fetch(DATA_URL);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          allPacks = await res.json();
+          buildCounts();
+          render();
+          setStatus('ok', `Loaded ${allPacks.length} packs · ${totalSkins()} skins`);
+          toolbar.style.display = 'flex';
+        } catch (e) {
+          setStatus('error', 'Failed to load skins.json');
+          showError(`Could not load ${DATA_URL} — ${e.message}. Make sure skins.json is in the same folder as this HTML file.`);
+        }
+      }
+
+      function totalSkins() {
+        return allPacks.reduce((s, p) => s + p.skins.length, 0);
+      }
+
+      function setStatus(cls, msg) {
+        statusBar.className = cls;
+        statusText.textContent = msg;
+      }
+
+      function showError(msg) {
+        errorToast.textContent = msg;
+        errorToast.classList.add('show');
+      }
+
+      // ── Count skins per flag type ─────────────────────────────────────────────
+      function buildCounts() {
+        const counts = { all: 0, female: 0, male: 0, human: 0, creature: 0, robot: 0, unfair: 0, na: 0, missing: 0, unknown: 0 };
+        for (const pack of allPacks) {
+          for (const skin of pack.skins) {
+            counts.all++;
+            const cls = skin.badge_classes || [];
+            if (cls.includes('gf-female'))       counts.female++;
+            if (cls.includes('gf-male'))         counts.male++;
+            if (cls.includes('gf-human'))        counts.human++;
+            if (cls.includes('gf-creature'))     counts.creature++;
+            if (cls.includes('gf-robot'))        counts.robot++;
+            if (cls.includes('gf-unfair-stack')) counts.unfair++;
+            if (cls.includes('gf-na'))           counts.na++;
+            if (cls.includes('gf-missing'))      counts.missing++;
+            if (cls.includes('gf-unknown'))      counts.unknown++;
+          }
+        }
+        for (const [key, val] of Object.entries(counts)) {
+          const el = document.getElementById(`cnt-${key}`);
+          if (el) el.textContent = val;
+        }
+      }
+
+      // ── Render ───────────────────────────────────────────────────────────────
+      function render() {
+        const q = searchQuery.toLowerCase().trim();
+        const frag = document.createDocumentFragment();
+        let visiblePacks = 0;
+
+        for (const pack of allPacks) {
+          // Filter skins by flag + search
+          const visibleSkins = pack.skins.filter(skin => {
+            // Flag filter
+            if (activeFlag !== 'all') {
+              const cls = skin.badge_classes || [];
+              if (activeFlag === 'female'   && !cls.includes('gf-female'))       return false;
+              if (activeFlag === 'male'     && !cls.includes('gf-male'))         return false;
+              if (activeFlag === 'human'    && !cls.includes('gf-human'))        return false;
+              if (activeFlag === 'creature' && !cls.includes('gf-creature'))     return false;
+              if (activeFlag === 'robot'    && !cls.includes('gf-robot'))        return false;
+              if (activeFlag === 'unfair'   && !cls.includes('gf-unfair-stack')) return false;
+              if (activeFlag === 'na'       && !cls.includes('gf-na'))           return false;
+              if (activeFlag === 'missing'  && !cls.includes('gf-missing'))      return false;
+              if (activeFlag === 'unknown'  && !cls.includes('gf-unknown'))      return false;
+            }
+            // Search filter
+            if (q) {
+              return skin.name.toLowerCase().includes(q) || skin.id.toLowerCase().includes(q);
+            }
+            return true;
+          });
+
+          if (visibleSkins.length === 0) continue;
+          visiblePacks++;
+
+          frag.appendChild(buildPackSection(pack, visibleSkins));
+        }
+
+        packsArea.innerHTML = '';
+        if (visiblePacks === 0) {
+          packsArea.appendChild(buildEmpty());
+        } else {
+          packsArea.appendChild(frag);
+        }
+      }
+
+      function buildPackSection(pack, skins) {
+        const section = document.createElement('div');
+        section.className = 'pack-section';
+
+        // Count tag types for this pack's visible skins
+        const tagCounts = {};
+        for (const skin of skins) {
+          for (const cls of (skin.badge_classes || [])) {
+            const key = cls.replace('gf-', '').replace('-stack', '');
+            if (key === 'unfair') {
+              tagCounts['unfair'] = (tagCounts['unfair'] || 0) + 1;
+            } else {
+              tagCounts[key] = (tagCounts[key] || 0) + 1;
+            }
+          }
+        }
+
+        // Build tag pills HTML
+        const tagOrder = ['female','male','human','creature','robot','unfair','na','missing','unknown'];
+        let tagPillsHtml = '';
+        for (const tag of tagOrder) {
+          if (!tagCounts[tag]) continue;
+          const icon = TAG_ICONS[tag] || '';
+          const count = tagCounts[tag];
+          const label = tag === 'na' ? 'Abandoned' : tag.charAt(0).toUpperCase() + tag.slice(1);
+          tagPillsHtml += `<span class="tag-pill tp-${tag}" title="${label}: ${count} skin${count !== 1 ? 's' : ''}">${icon}<span class="tp-count">${count}</span> ${label}</span>`;
+        }
+
+        section.innerHTML = `
+          <div class="pack-header">
+            <div class="pack-header-top">
+              <div class="pack-accent-bar"></div>
+              <div class="pack-header-inner">
+                <div class="pack-name-wrap">
+                  <div class="pack-name">${escHtml(pack.name)}</div>
+                  <div class="pack-id-badge">
+                    <svg fill="none" height="10" viewBox="0 0 10 10" width="10">
+                      <rect height="8" stroke="#888888" stroke-width="1.5" width="8" x="1" y="1"></rect>
+                      <rect fill="#888888" height="4" width="4" x="3" y="3"></rect>
+                    </svg>
+                    PACK ID: <span class="id-val">${escHtml(pack.id)}</span>
+                  </div>
+                </div>
+                <div class="tag-counts">${tagPillsHtml}</div>
+                <div class="pack-right">
+                  <div class="pack-count">
+                    <span class="count-num">${skins.length}</span>
+                    <svg fill="currentColor" height="12" opacity="0.7" viewBox="0 0 12 12" width="12">
+                      <rect height="4" rx="1" width="4" x="4" y="1"></rect>
+                      <rect height="6" rx="1" width="8" x="2" y="6"></rect>
+                      <rect height="5" width="2" x="0" y="6"></rect>
+                      <rect height="5" width="2" x="10" y="6"></rect>
+                    </svg>
+                    SKINS
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="skin-grid">${skins.map(s => buildSkinCard(pack, s)).join('')}</div>
+        `;
+        return section;
+      }
+
+      function buildSkinCard(pack, skin) {
+        const iconUrl = `${GITHUB_BASE}/${pack.id}/${skin.id}.png`;
+        const classes = (skin.badge_classes || []);
+        const classStr = classes.join(' ');
+
+        // Derive badge text and title from lookup table
+        const primaryClass = classes.find(c => c !== 'gf-unfair-stack');
+        const meta = primaryClass ? BADGE_META[primaryClass] : null;
+        const badgeText = meta ? (classes.includes('gf-unfair-stack') ? '⚠ ' + meta.text : meta.text) : '';
+        const badgeTitle = [
+          meta ? meta.title : '',
+          classes.includes('gf-unfair-stack') ? '\n\n⚠ UNFAIR BATTLE (0x01) also set:\n  Skin has hitbox-obscuring geometry or grants a visual advantage.\n  This bit stacks on top of the archetype — it does not replace it.' : ''
+        ].join('').trim();
+        const icon = primaryClass ? (BADGE_ICONS[primaryClass] || '') : '';
+
+        return `<div class="skin-card">
+          <div class="skin-icon-wrap">
+            <img class="skin-icon" src="${iconUrl}" alt="${escHtml(skin.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="skin-icon-placeholder" style="display:none">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" opacity="0.3"><rect x="8" y="2" width="8" height="8" rx="2" fill="currentColor"></rect><rect x="4" y="12" width="16" height="12" rx="2" fill="currentColor"></rect><rect x="0" y="12" width="5" height="10" fill="currentColor"></rect><rect x="19" y="12" width="5" height="10" fill="currentColor"></rect></svg>
+            </div>
+          </div>
+          <div class="skin-info">
+            <div class="skin-name">${escHtml(skin.name)}</div>
+            <span class="skin-id">${escHtml(skin.id)}</span>
+            ${classStr ? `<span class="game-flag-badge ${classStr}" title="${escHtml(badgeTitle)}">${icon}${escHtml(badgeText)}</span>` : ''}
+          </div>
+        </div>`;
+      }
+
+      function buildEmpty() {
+        const div = document.createElement('div');
+        div.className = 'empty-state';
+        div.innerHTML = `
+          <div class="empty-icon">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <rect x="4" y="4" width="56" height="56" stroke="currentColor" stroke-width="4"></rect>
+              <line x1="4" y1="4" x2="60" y2="60" stroke="currentColor" stroke-width="4"></line>
+              <line x1="60" y1="4" x2="4" y2="60" stroke="currentColor" stroke-width="4"></line>
+            </svg>
+          </div>
+          <div class="big">No skins found</div>
+          <p>Try a different filter or search term</p>`;
+        return div;
+      }
+
+      function escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      // ── Events ────────────────────────────────────────────────────────────────
+      document.getElementById('reload-btn').addEventListener('click', () => {
+        errorToast.classList.remove('show');
+        loadData();
+      });
+
+      searchInput.addEventListener('input', () => {
+        searchQuery = searchInput.value;
+        render();
+      });
+
+      document.querySelectorAll('.flag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.flag-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeFlag = btn.dataset.flag;
+          render();
+        });
+      });
+
+      // ── Boot ─────────────────────────────────────────────────────────────────
+      loadData();
+    </script>
+  </body>
+</html>
