@@ -69,6 +69,23 @@
         color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
+        position: relative;
+      }
+      #status-credit {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      #status-credit span {
+        color: var(--ore-gold);
+        font-weight: 700;
       }
       .status-indicator { display: flex; align-items: center; gap: 8px; }
       .status-dot {
@@ -247,6 +264,7 @@
           <div class="status-dot"></div>
           <span id="status-text">Loading catalog…</span>
         </div>
+        <div id="status-credit">GameFlags research by <span>MayNL</span></div>
         <button id="reload-btn">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M10 6a4 4 0 1 1-1.172-2.828L7.414 4.586 11 4l-.586-3.586-1.5 1.5A6 6 0 1 0 12 6h-2z"/>
