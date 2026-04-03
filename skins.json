@@ -7454,240 +7454,245 @@
         "id": "20000144",
         "name": "Blue Knight",
         "badge_classes": ["gf-male"]
-      }
-    ]
-  },
-  {
-    "id": "513",
-    "name": "Skin2",
-    "skins": [
-      {
-        "id": "00000100",
-        "name": "Enderman",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000101",
-        "name": "Pig",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000102",
-        "name": "Sheep",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000103",
-        "name": "Naked Sheep",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000104",
-        "name": "Spider",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000105",
-        "name": "General Akamoto",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000106",
-        "name": "Otus",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000108",
-        "name": "Agent Cobalt",
-        "badge_classes": ["gf-robot"]
-      },
-      {
-        "id": "00000109",
-        "name": "Zap",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000110",
-        "name": "Buzz",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000111",
-        "name": "Glorg",
-        "badge_classes": ["gf-creature", "gf-unfair-stack"]
-      },
-      {
-        "id": "00000112",
-        "name": "The Player",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000113",
-        "name": "Spelunky Guy",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000114",
-        "name": "Green Knight",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000115",
-        "name": "Pirate",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000116",
-        "name": "Ninja",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000117",
-        "name": "Elf",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000118",
-        "name": "Marcus Fenix",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000119",
-        "name": "Skorge",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000120",
-        "name": "Anya Stroud",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000121",
-        "name": "Damon Baird",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000122",
-        "name": "Joanna Dark",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000123",
-        "name": "Joanna Dark - Dress",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000124",
-        "name": "Joanna Dark",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000125",
-        "name": "Elvis",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000126",
-        "name": "Juno",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000127",
-        "name": "Vela",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000128",
-        "name": "Lupus",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000129",
-        "name": "Orange Knight",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000130",
-        "name": "Bill",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000131",
-        "name": "Louis",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000132",
-        "name": "Francis",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000133",
-        "name": "Zoey",
-        "badge_classes": ["gf-female"]
-      },
-      {
-        "id": "00000134",
-        "name": "Witch",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000135",
-        "name": "Boomer",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000136",
-        "name": "Hunter",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000137",
-        "name": "Agent Level 5",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000138",
-        "name": "Horstashio",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000139",
-        "name": "Pretztail",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000140",
-        "name": "Fizzlybear",
-        "badge_classes": ["gf-creature"]
-      },
-      {
-        "id": "00000141",
-        "name": "Pilot",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000142",
-        "name": "Sailor",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000143",
-        "name": "Red Knight",
-        "badge_classes": ["gf-male"]
-      },
-      {
-        "id": "00000144",
-        "name": "Blue Knight",
-        "badge_classes": ["gf-male"]
       },
       {
         "id": "00000107",
         "name": "Meat Boy",
-        "badge_classes": ["gf-missing"]
+        "badge_classes": ["gf-creature", "gf-unfair-stack"]
       }
     ]
   },
+  {
+  "id": "513",
+  "name": "Skin2",
+  "skins": [
+    {
+      "id": "00000129",
+      "name": "Orange Knight",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000105",
+      "name": "General Akamoto",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000106",
+      "name": "Otus",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000107",
+      "name": "Meat Boy",
+      "badge_classes": ["gf-creature", "gf-unfair-stack"]
+    },
+    {
+      "id": "00000108",
+      "name": "Agent Cobalt",
+      "badge_classes": ["gf-robot"]
+    },
+    {
+      "id": "00000109",
+      "name": "Zap",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000110",
+      "name": "Buzz",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000111",
+      "name": "Glorg",
+      "badge_classes": ["gf-creature", "gf-unfair-stack"]
+    },
+    {
+      "id": "00000112",
+      "name": "The Player",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000113",
+      "name": "Spelunky Guy",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000141",
+      "name": "Pilot",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000142",
+      "name": "Sailor",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000115",
+      "name": "Pirate",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000116",
+      "name": "Ninja",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000117",
+      "name": "Elf",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000100",
+      "name": "Enderman",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000101",
+      "name": "Pig",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000102",
+      "name": "Sheep",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000103",
+      "name": "Naked Sheep",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000104",
+      "name": "Spider",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000118",
+      "name": "Marcus Fenix",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000119",
+      "name": "Skorge",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000120",
+      "name": "Anya Stroud",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000121",
+      "name": "Damon Baird",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000122",
+      "name": "Joanna Dark",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000123",
+      "name": "Joanna Dark - Dress",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000125",
+      "name": "Elvis",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000124",
+      "name": "Joanna Dark",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000126",
+      "name": "Juno",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000127",
+      "name": "Vela",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000128",
+      "name": "Lupus",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000130",
+      "name": "Bill",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000131",
+      "name": "Louis",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000132",
+      "name": "Francis",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000133",
+      "name": "Zoey",
+      "badge_classes": ["gf-female"]
+    },
+    {
+      "id": "00000134",
+      "name": "Witch",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000135",
+      "name": "Boomer",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000136",
+      "name": "Hunter",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000137",
+      "name": "Agent Level 5",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000138",
+      "name": "Horstashio",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000139",
+      "name": "Pretztail",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000140",
+      "name": "Fizzlybear",
+      "badge_classes": ["gf-creature"]
+    },
+    {
+      "id": "00000143",
+      "name": "Red Knight",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000144",
+      "name": "Blue Knight",
+      "badge_classes": ["gf-male"]
+    },
+    {
+      "id": "00000114",
+      "name": "Green Knight",
+      "badge_classes": ["gf-male"]
+    }
+  ]
+},
   {
     "id": "514",
     "name": "Skin3_Sony",
@@ -8613,8 +8618,39 @@
     ]
   },
   {
-    "id": "—",
-    "name": "SkinPack5",
+    "id": "521",
+    "name": "SkinPack5 (360) Skins replaced by Punks",
+    "skins": [
+      {
+        "id": "00000923",
+        "name": "Roland",
+        "badge_classes": ["gf-male"]
+      },
+      {
+        "id": "00000924",
+        "name": "Axton",
+        "badge_classes": ["gf-male"]
+      },
+      {
+        "id": "00000925",
+        "name": "Handsome Jack",
+        "badge_classes": ["gf-male"]
+      },
+      {
+        "id": "00000926",
+        "name": "Maya",
+        "badge_classes": ["gf-female"]
+      },
+      {
+        "id": "00000927",
+        "name": "Salvador",
+        "badge_classes": ["gf-male"]
+      }
+    ]
+  },
+  {
+    "id": "521",
+    "name": "SkinPack5_XB1",
     "skins": [
       {
         "id": "00000908",
@@ -8844,7 +8880,7 @@
     ]
   },
   {
-    "id": "—",
+    "id": "527",
     "name": "SkinPack6",
     "skins": [
       {
